@@ -1669,41 +1669,51 @@ window.saveChipCheck = function(){
   const upd={};
   let enteredTotal=0;
   let enteredCount=0;
+  let blankCount=0;
 
   ap.forEach(p=>{
     const el=document.getElementById(`cc_${p.id}`);if(!el)return;
-    const val=parseFloat(el.value);
-    if(!isNaN(val)&&val>=0){
-      upd[`players/${p.id}/chipTotal`]=val;
-      enteredTotal+=val;
-      enteredCount++;
+    const raw=el.value.trim();
+    if(raw===''){
+      // Blank — use existing chipTotal if available
+      if(p.chipTotal!=null){
+        enteredTotal+=p.chipTotal;
+        enteredCount++;
+      } else {
+        blankCount++;
+      }
+    } else {
+      const val=parseFloat(raw);
+      if(!isNaN(val)&&val>=0){
+        upd[`players/${p.id}/chipTotal`]=val;
+        enteredTotal+=val;
+        enteredCount++;
+      }
     }
   });
 
-  // Only validate if all active players have been entered
-  if(enteredCount===ap.length){
+  // Validate whenever all players are accounted for (none truly blank without a prior value)
+  if(blankCount===0 && enteredCount===ap.length){
     const totalBuyIns=Object.values(R.players||{}).reduce((s,p)=>s+(p.buyIns||0),0);
     const expectedTotal=totalBuyIns*buyIn;
-    if(enteredTotal!==expectedTotal){
-      const diff=enteredTotal-expectedTotal;
+    if(Math.round(enteredTotal)!==expectedTotal){
+      const diff=Math.round(enteredTotal)-expectedTotal;
       const errEl=document.getElementById('chipCheckErr');
       if(errEl){
-        errEl.textContent=`⚠ Total $${enteredTotal} doesn't match pool $${expectedTotal} (${diff>0?'+':''}$${diff}). Check your counts or save anyway.`;
+        errEl.textContent=`⚠ Total $${Math.round(enteredTotal)} doesn't match pool $${expectedTotal} (${diff>0?'+':''}$${diff}). Check your counts or save anyway.`;
         errEl.style.display='block';
       }
-      // Add save-anyway button
       document.getElementById('chipCheckActions').innerHTML=`
-        <button class="btn btn-outline" style="flex:1" onclick="closeModal('chipCheckOverlay')">Cancel</button>
+        <button class="btn btn-outline" style="flex:1" onclick="closeModal('chipCheckOverlay');resetChipCheckModal()">Cancel</button>
         <button class="btn btn-danger" style="flex:1" onclick="forceChipCheck()">Save Anyway</button>
         <button class="btn btn-gold" style="flex:1" onclick="saveChipCheck()">Re-check</button>`;
       return;
     }
   }
 
-  db.ref(`rooms/${SESSION.roomCode}`).update(upd);
+  if(Object.keys(upd).length) db.ref(`rooms/${SESSION.roomCode}`).update(upd);
   closeModal('chipCheckOverlay');
-  const errEl=document.getElementById('chipCheckErr');
-  if(errEl)errEl.style.display='none';
+  resetChipCheckModal();
   showToast('Chip check saved 📊');
 }
 
