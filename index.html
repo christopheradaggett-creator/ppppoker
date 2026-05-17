@@ -817,17 +817,15 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
     <div id="endNightWarning"></div>
     <div class="modal-actions" id="endNightActions">
       <button class="btn btn-outline" style="flex:1" onclick="closeModal('endNightOverlay')">Cancel</button>
-      <button class="btn btn-danger" style="flex:1" onclick="endNight()">Archive</button>
+      <button class="btn btn-danger" style="flex:1" onclick="closeNightFinal()">Archive</button>
     </div>
   </div>
 </div>
 
-<script type="module">
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script>
 // ── Firebase ──────────────────────────────────────────
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
-import { getDatabase, ref, set, get, update, push, onValue, off, serverTimestamp }
-  from "https://www.gstatic.com/firebasejs/12.13.0/firebase-database.js";
-
 const firebaseConfig = {
   apiKey: "AIzaSyCCiuXlNcjLE9KLgQi0UIhVK0qXRcDW9co",
   authDomain: "ppppoker-1879b.firebaseapp.com",
@@ -837,8 +835,8 @@ const firebaseConfig = {
   messagingSenderId: "70205965619",
   appId: "1:70205965619:web:d9495553b02823b91a2a46"
 };
-const firebaseApp = initializeApp(firebaseConfig);
-const db = getDatabase(firebaseApp);
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
 
 // ── Session state ─────────────────────────────────────
 let SESSION = { role: null, roomCode: null, playerId: null, playerName: null };
@@ -883,7 +881,7 @@ window.joinWithCode = async function(){
   const code = document.getElementById('joinRoomCode').value.trim().toUpperCase();
   if(!code){ document.getElementById('joinErr').textContent='Enter a room code'; return; }
   document.getElementById('joinErr').textContent='Checking…';
-  const snap = await get(ref(db,`rooms/${code}`));
+  const snap = await db.ref(`rooms/${code}`).once('value');
   if(!snap.exists()){ document.getElementById('joinErr').textContent='Room not found. Check the code.'; return; }
   SESSION.roomCode = code;
   document.getElementById('joinStep1').style.display='none';
@@ -899,8 +897,29 @@ window.joinAsPlayer = async function(){
   SESSION.playerName = name;
   SESSION.role = 'player';
   // Add player to room
-  await set(ref(db,`rooms/${SESSION.roomCode}/players/${pid}`),{
+  await db.ref(`rooms/${SESSION.roomCode}/players/${pid}`).set({
     id:pid, name, active:true, buyIns:0, chipTotal:null, cashedOut:false, isHost:false, joinedAt:Date.now()
+  });
+  saveSession();
+  enterApp();
+}
+window.createRoom = async function(){
+  const name = document.getElementById('hostName').value.trim()||'Chris';
+  const code = document.getElementById('hostRoomCode').value.trim().toUpperCase();
+  const buyIn = parseInt(document.getElementById('hostBuyIn').value)||25;
+  if(!code){ document.getElementById('joinErr3').textContent='Enter a room code'; return; }
+  document.getElementById('joinErr3').textContent='Creating…';
+  const pid = uid();
+  SESSION.roomCode = code;
+  SESSION.playerId = pid;
+  SESSION.playerName = name;
+  SESSION.role = 'host';
+  const d = new Date();
+  const nightName = d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  await db.ref(`rooms/${code}`).set({
+    nightName, buyIn, createdAt:Date.now(),
+    players:{ [pid]:{ id:pid,name,active:true,buyIns:0,chipTotal:null,cashedOut:false,isHost:true,joinedAt:Date.now() }},
+    bets:{}, nitGames:{}, lowGames:{}, n64Games:{}, raceGames:{}, drinks:{}, history:{}
   });
   enterApp();
 }
@@ -917,11 +936,12 @@ window.createRoom = async function(){
   SESSION.role = 'host';
   const d = new Date();
   const nightName = d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
-  await set(ref(db,`rooms/${code}`),{
+  await db.ref(`rooms/${code}`).set({
     nightName, buyIn, createdAt:Date.now(),
     players:{ [pid]:{ id:pid,name,active:true,buyIns:0,chipTotal:null,cashedOut:false,isHost:true,joinedAt:Date.now() }},
     bets:{}, nitGames:{}, lowGames:{}, n64Games:{}, raceGames:{}, drinks:{}, history:{}
   });
+  saveSession();
   enterApp();
 }
 window.spectateMode = function(){
@@ -931,11 +951,70 @@ window.spectateMode = function(){
   enterApp();
 }
 
-// ── URL room code pre-fill ────────────────────────────
-(function(){
+// ── SESSION PERSISTENCE ───────────────────────────────
+function saveSession(){
+  try{ localStorage.setItem('ppppoker_session', JSON.stringify({
+    role: SESSION.role,
+    roomCode: SESSION.roomCode,
+    playerId: SESSION.playerId,
+    playerName: SESSION.playerName,
+    savedAt: Date.now()
+  })); }catch(e){}
+}
+function clearSession(){
+  try{ localStorage.removeItem('ppppoker_session'); }catch(e){}
+}
+async function tryAutoRejoin(){
+  try{
+    const raw = localStorage.getItem('ppppoker_session');
+    if(!raw) return false;
+    const saved = JSON.parse(raw);
+    // Only auto-rejoin sessions less than 24 hours old
+    if(!saved.roomCode || Date.now()-saved.savedAt > 86400000){ clearSession(); return false; }
+    // Check room still exists in Firebase
+    const snap = await db.ref(`rooms/${saved.roomCode}`).once('value');
+    if(!snap.exists()){ clearSession(); return false; }
+    // Show rejoin prompt
+    showRejoinBanner(saved);
+    return true;
+  }catch(e){ return false; }
+}
+function showRejoinBanner(saved){
+  const banner = document.createElement('div');
+  banner.id = 'rejoinBanner';
+  banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:400;background:var(--felt);border-top:1px solid var(--border);padding:16px 20px;display:flex;flex-direction:column;gap:10px;max-width:500px;margin:0 auto';
+  banner.innerHTML = `
+    <div style="font-family:'Playfair Display',serif;font-size:16px;color:var(--gold-light)">Rejoin as ${esc(saved.playerName||'Host')}?</div>
+    <div style="font-size:12px;color:var(--text-dim)">Room <span style="color:var(--gold);font-family:'DM Mono',monospace;letter-spacing:2px">${esc(saved.roomCode)}</span> · ${saved.role}</div>
+    <div style="display:flex;gap:8px">
+      <button onclick="doRejoin()" style="flex:2;padding:12px;border-radius:9px;border:none;background:var(--gold);color:var(--felt-dark);font-family:'DM Sans',sans-serif;font-weight:700;font-size:14px;cursor:pointer">Rejoin Game</button>
+      <button onclick="dismissRejoin()" style="flex:1;padding:12px;border-radius:9px;border:1px solid var(--border-dim);background:transparent;color:var(--text-dim);font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer">Start Fresh</button>
+    </div>`;
+  document.body.appendChild(banner);
+  window._savedSession = saved;
+}
+window.doRejoin = async function(){
+  const saved = window._savedSession;
+  SESSION.role = saved.role;
+  SESSION.roomCode = saved.roomCode;
+  SESSION.playerId = saved.playerId;
+  SESSION.playerName = saved.playerName;
+  saveSession();
+  document.getElementById('rejoinBanner')?.remove();
+  enterApp();
+}
+window.dismissRejoin = function(){
+  clearSession();
+  document.getElementById('rejoinBanner')?.remove();
+}
+
+// ── URL room code pre-fill + auto-rejoin check ────────
+(async function(){
   const params = new URLSearchParams(window.location.search);
   const rc = params.get('room');
   if(rc){ document.getElementById('joinRoomCode').value=rc.toUpperCase(); }
+  // Try auto-rejoin unless a room code is in the URL (means someone's joining fresh)
+  if(!rc){ await tryAutoRejoin(); }
 })();
 
 // ── ENTER APP ────────────────────────────────────────
@@ -980,8 +1059,8 @@ function enterApp(){
   window._roomCode = _code;
 
   // Subscribe to room
-  roomRef = ref(db, `rooms/${SESSION.roomCode}`);
-  unsubRoom = onValue(roomRef, snap => {
+  roomRef = db.ref(`rooms/${SESSION.roomCode}`);
+  unsubRoom = roomRef.on('value', snap => {
     if(!snap.exists()) return;
     R = snap.val();
     R.players = R.players||{}; R.bets = R.bets||{}; R.nitGames = R.nitGames||{};
@@ -994,12 +1073,12 @@ function enterApp(){
   });
 
   // Connection state
-  onValue(ref(db,'.info/connected'), snap => {
+  db.ref('.info/connected').on('value', snap => {
     document.getElementById('connectingBanner').style.display = snap.val() ? 'none' : 'block';
   });
 
   // Hot dog listeners — inside enterApp so roomCode is guaranteed set
-  onValue(ref(db,`rooms/${SESSION.roomCode}/hotdogOClock`), snap => {
+  db.ref(`rooms/${SESSION.roomCode}/hotdogOClock`).on('value', snap => {
     if(!snap.val()) return;
     if(!isHost()){
       document.getElementById('hotdogOverlay').style.display='block';
@@ -1012,7 +1091,7 @@ function enterApp(){
       showHdBanner();
     }
   });
-  onValue(ref(db,`rooms/${SESSION.roomCode}/hotdogOrders`), snap => {
+  db.ref(`rooms/${SESSION.roomCode}/hotdogOrders`).on('value', snap => {
     R.hotdogOrders = snap.val()||{};
     if(isHost() && document.getElementById('hotdogOverlay').style.display==='block') renderHdTally();
     updateHdBannerSub();
@@ -1083,9 +1162,9 @@ function updateBadges(){
 }
 
 // ── DB HELPERS ────────────────────────────────────────
-function dbSet(path, val){ return set(ref(db,`rooms/${SESSION.roomCode}/${path}`), val) }
-function dbUpdate(path, val){ return update(ref(db,`rooms/${SESSION.roomCode}/${path}`), val) }
-function dbPush(path, val){ return push(ref(db,`rooms/${SESSION.roomCode}/${path}`), val) }
+function dbSet(path, val){ return db.ref(`rooms/${SESSION.roomCode}/${path}`).set(val) }
+function dbUpdate(path, val){ return db.ref(`rooms/${SESSION.roomCode}/${path}`).update(val) }
+function dbPush(path, val){ return db.ref(`rooms/${SESSION.roomCode}/${path}`).push(val) }
 
 // ── NIGHT ─────────────────────────────────────────────
 window.openNightModal = function(){
@@ -1146,7 +1225,7 @@ window.dealEveryoneIn = function(){
   const ap=activePlayers();if(!ap.length){showToast('No active players');return;}
   const upd={};
   ap.forEach(p=>upd[`players/${p.id}/buyIns`]=(p.buyIns||0)+1);
-  update(ref(db,`rooms/${SESSION.roomCode}`),upd);
+  db.ref(`rooms/${SESSION.roomCode}`).update(upd);
   showToast(`${ap.length} players dealt in · $${ap.length*(R.buyIn||25)} pool`);
 }
 window.tipDealer = function(){
@@ -1373,7 +1452,7 @@ window.saveChipCheck = function(){
     const val=parseFloat(el.value);
     if(!isNaN(val)&&val>=0)upd[`players/${p.id}/chipTotal`]=val;
   });
-  update(ref(db,`rooms/${SESSION.roomCode}`),upd);
+  db.ref(`rooms/${SESSION.roomCode}`).update(upd);
   closeModal('chipCheckOverlay');showToast('Chip check saved 📊');
 }
 window.resetChipCheckModal=function(){}
@@ -1405,13 +1484,13 @@ window.closeNightFinal = async function(){
     const val=parseFloat(el.value);
     if(!isNaN(val)&&val>=0){upd[`players/${p.id}/chipTotal`]=val;upd[`players/${p.id}/cashedOut`]=true;}
   });
-  if(Object.keys(upd).length) await update(ref(db,`rooms/${SESSION.roomCode}`),upd);
+  if(Object.keys(upd).length) await db.ref(`rooms/${SESSION.roomCode}`).update(upd);
 
   // Archive to history
   const histId=uid();
-  const snap=await get(ref(db,`rooms/${SESSION.roomCode}`));
+  const snap=await db.ref(`rooms/${SESSION.roomCode}`).once('value');
   const nightData=snap.val();
-  await set(ref(db,`rooms/${SESSION.roomCode}/history/${histId}`),{
+  await db.ref(`rooms/${SESSION.roomCode}/history/${histId}`).set({
     nightName:R.nightName,date:new Date().toISOString(),buyIn:R.buyIn,
     players:nightData.players,bets:nightData.bets,
     nitGames:nightData.nitGames,lowGames:nightData.lowGames,
@@ -1427,8 +1506,8 @@ window.closeNightFinal = async function(){
     resetUpd[`players/${pid}/chipTotal`]=null;
     resetUpd[`players/${pid}/cashedOut`]=false;
   });
-  await update(ref(db,`rooms/${SESSION.roomCode}`),resetUpd);
-  closeModal('chipCheckOverlay');showToast('Game archived 📖');switchTab('board');
+  await db.ref(`rooms/${SESSION.roomCode}`).update(resetUpd);
+  closeModal('chipCheckOverlay');clearSession();showToast('Game archived 📖');switchTab('board');
 }
 
 // ── SIDE BETS ─────────────────────────────────────────
