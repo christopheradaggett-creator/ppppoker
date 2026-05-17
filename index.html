@@ -453,7 +453,6 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
       </div>
       <div style="display:flex;gap:8px;margin-bottom:12px">
         <button class="btn btn-outline btn-sm host-only" style="flex:1;border-color:rgba(201,168,76,0.3);color:var(--gold)" onclick="dealEveryoneIn()">Deal Everyone In</button>
-        <button class="btn btn-outline btn-sm host-only" style="flex:1;border-color:rgba(76,175,130,0.3);color:var(--green)" onclick="tipDealer()">Tip the Dealer</button>
         <button class="btn btn-outline btn-sm host-only" style="flex:1;border-color:rgba(192,57,43,0.3);color:var(--red-light)" onclick="openOverridePanel()">⚙ Override</button>
       </div>
       <div class="player-grid" id="playerGrid"></div>
@@ -1515,12 +1514,13 @@ function renderPlayers(){
         <button class="p-buyin-btn" style="flex:1;border-top:none;color:${p.cashedOut?'var(--green)':'var(--text-dim)'}" onclick="openCashOut('${p.id}')">${p.cashedOut?'✓ Cashed':'Cash Out'}</button>
       </div>`;
     }else if(isMine&&SESSION.role==='player'){
-      // My own card as a player — request buy-in button
+      // My own card as a player — request buy-in and tip dealer buttons
       if(myPendingReq){
         actionBar=`<div style="border-top:1px solid var(--border-dim);padding:8px;text-align:center;font-size:11px;color:var(--text-dim)">⏳ Buy-in requested…</div>`;
       }else{
-        actionBar=`<div style="border-top:1px solid var(--border-dim)">
-          <button class="p-buyin-btn" style="border-top:none;color:var(--blue)" onclick="requestBuyIn('${p.id}')">🙋 Request Buy-In</button>
+        actionBar=`<div style="display:flex;border-top:1px solid var(--border-dim)">
+          <button class="p-buyin-btn" style="flex:1;border-right:1px solid var(--border-dim);border-top:none;color:var(--blue)" onclick="requestBuyIn('${p.id}')">🙋 Request Buy-In</button>
+          <button class="p-buyin-btn" style="flex:1;border-top:none;color:var(--green)" onclick="tipDealer()">💰 Tip Dealer</button>
         </div>`;
       }
     }
