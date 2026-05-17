@@ -239,7 +239,17 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
 @keyframes hdFall{from{transform:translateY(-120px) rotate(var(--rs))}to{transform:translateY(110vh) rotate(var(--re))}}
 @keyframes hdSiren{0%,100%{opacity:0.18}50%{opacity:0.38}}
 
-/* ── End of Game Ceremony ── */
+/* ── Override Panel ── */
+.override-tab{padding:7px 14px;border-radius:20px;border:1px solid var(--border-dim);background:transparent;color:var(--text-dim);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s}
+.override-tab.active{background:var(--red-light);color:#fff;border-color:var(--red-light)}
+.override-tab:hover:not(.active){color:var(--text);border-color:var(--border)}
+.ov-row{background:var(--surface);border:1px solid var(--border-dim);border-radius:10px;padding:12px 14px;margin-bottom:8px}
+.ov-row-title{font-size:13px;font-weight:600;margin-bottom:8px;color:var(--text)}
+.ov-field-row{display:flex;gap:8px;align-items:center;margin-bottom:6px}
+.ov-field-row label{font-size:11px;color:var(--text-dim);min-width:70px}
+.ov-field-row input{flex:1;padding:6px 10px;background:var(--surface2);border:1px solid var(--border-dim);border-radius:7px;font-size:13px;color:var(--text);font-family:'DM Sans',sans-serif;outline:none}
+.ov-field-row input:focus{border-color:var(--gold)}
+.ov-actions{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
 #ceremonyOverlay{display:none;position:fixed;inset:0;z-index:990;background:var(--felt-dark);overflow-y:auto;flex-direction:column}
 .ceremony-stage{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;max-width:500px;margin:0 auto;width:100%}
 .ceremony-logo{font-family:'Playfair Display',serif;font-size:14px;letter-spacing:4px;color:var(--text-muted);text-transform:uppercase;margin-bottom:40px;opacity:0;transition:opacity 1s}
@@ -425,6 +435,7 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
       <div style="display:flex;gap:8px;margin-bottom:12px">
         <button class="btn btn-outline btn-sm host-only" style="flex:1;border-color:rgba(201,168,76,0.3);color:var(--gold)" onclick="dealEveryoneIn()">Deal Everyone In</button>
         <button class="btn btn-outline btn-sm host-only" style="flex:1;border-color:rgba(76,175,130,0.3);color:var(--green)" onclick="tipDealer()">Tip the Dealer</button>
+        <button class="btn btn-outline btn-sm host-only" style="flex:1;border-color:rgba(192,57,43,0.3);color:var(--red-light)" onclick="openOverridePanel()">⚙ Override</button>
       </div>
       <div class="player-grid" id="playerGrid"></div>
       <div id="buyInRequestBanner" style="display:none;background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.25);border-radius:10px;padding:12px 14px;margin-bottom:12px"></div>
@@ -843,6 +854,43 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
 </div>
 
 <!-- End night confirm -->
+<!-- Override Panel -->
+<div class="overlay" id="overrideOverlay" style="display:none" onclick="if(event.target===this)closeModal('overrideOverlay')">
+  <div class="modal" style="max-height:92vh">
+    <div class="modal-handle"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+      <div class="modal-title" style="margin-bottom:0">Host Override</div>
+      <button onclick="closeModal('overrideOverlay')" style="background:none;border:none;color:var(--text-dim);font-size:20px;cursor:pointer">✕</button>
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap">
+      <button class="override-tab active" onclick="switchOverrideTab('players')" id="ot-players">Players</button>
+      <button class="override-tab" onclick="switchOverrideTab('bets')" id="ot-bets">Bets</button>
+      <button class="override-tab" onclick="switchOverrideTab('games')" id="ot-games">Games</button>
+      <button class="override-tab" onclick="switchOverrideTab('adjustments')" id="ot-adjustments">Adjustments</button>
+    </div>
+    <div id="ov-players" class="ov-section"></div>
+    <div id="ov-bets" class="ov-section" style="display:none"></div>
+    <div id="ov-games" class="ov-section" style="display:none"></div>
+    <div id="ov-adjustments" class="ov-section" style="display:none">
+      <div class="form-row">
+        <label class="field-label">Player</label>
+        <select class="field" id="adjPlayer" style="appearance:auto"></select>
+      </div>
+      <div class="form-row">
+        <label class="field-label">Amount ($) — negative to deduct</label>
+        <input class="field" id="adjAmount" type="number" placeholder="e.g. 10 or -10">
+      </div>
+      <div class="form-row">
+        <label class="field-label">Note</label>
+        <input class="field" id="adjNote" placeholder="e.g. Missed bet correction">
+      </div>
+      <button class="btn btn-gold btn-full" onclick="applyAdjustment()">Apply Adjustment</button>
+      <div class="label" style="margin-top:14px;margin-bottom:8px">Existing Adjustments</div>
+      <div id="adjList"></div>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="endNightOverlay" style="display:none" onclick="if(event.target===this)closeModal('endNightOverlay')">
   <div class="modal">
     <div class="modal-handle"></div>
@@ -1122,7 +1170,7 @@ function enterApp(){
     R = snap.val();
     R.players = R.players||{}; R.bets = R.bets||{}; R.nitGames = R.nitGames||{};
     R.lowGames = R.lowGames||{}; R.n64Games = R.n64Games||{}; R.raceGames = R.raceGames||{};
-    R.drinks = R.drinks||{}; R.hotdogOrders = R.hotdogOrders||{}; R.buyInRequests = R.buyInRequests||{}; R.history = R.history||{};
+    R.drinks = R.drinks||{}; R.hotdogOrders = R.hotdogOrders||{}; R.buyInRequests = R.buyInRequests||{}; R.adjustments = R.adjustments||{}; R.history = R.history||{};
     // Sync banker role to SESSION if my player record was updated
     if(SESSION.playerId&&R.players[SESSION.playerId]){
       const me=R.players[SESSION.playerId];
@@ -1368,6 +1416,10 @@ function getPlayerSideBal(pid){
     const losers=(g.runners||[]).filter(r=>r!==g.winner);
     if(g.winner===pid)bal+=losers.length*(g.amount*g.oddsN/g.oddsD);
     else if((g.runners||[]).includes(pid))bal-=(g.amount*g.oddsN/g.oddsD);
+  });
+  // Manual adjustments
+  Object.values(R.adjustments||{}).forEach(a=>{
+    if(a.playerId===pid) bal+=a.amount;
   });
   return Math.round(bal*100)/100;
 }
@@ -2358,6 +2410,204 @@ function renderDrinks(){
     </div>`;
   }).join('');
 }
+
+// ── HOST OVERRIDE PANEL ───────────────────────────────
+window.openOverridePanel = function(){
+  if(!isHost())return;
+  switchOverrideTab('players');
+  document.getElementById('overrideOverlay').style.display='flex';
+}
+
+window.switchOverrideTab = function(tab){
+  document.querySelectorAll('.override-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.ov-section').forEach(s=>s.style.display='none');
+  document.getElementById('ot-'+tab).classList.add('active');
+  document.getElementById('ov-'+tab).style.display='block';
+  if(tab==='players') renderOvPlayers();
+  if(tab==='bets') renderOvBets();
+  if(tab==='games') renderOvGames();
+  if(tab==='adjustments') renderOvAdjustments();
+}
+
+function renderOvPlayers(){
+  const el=document.getElementById('ov-players');
+  const players=Object.values(R.players||{}).sort((a,b)=>a.joinedAt-b.joinedAt);
+  el.innerHTML=players.map(p=>`
+    <div class="ov-row">
+      <div class="ov-row-title">${esc(p.name)}${p.isHost?' 👑':p.isBanker?' 💰':''}</div>
+      <div class="ov-field-row">
+        <label>Name</label>
+        <input id="ovName_${p.id}" value="${esc(p.name)}" maxlength="18">
+        <button class="btn btn-xs btn-outline" onclick="ovSaveName('${p.id}')">Save</button>
+      </div>
+      <div class="ov-field-row">
+        <label>Buy-ins</label>
+        <input id="ovBuyIns_${p.id}" type="number" min="0" value="${p.buyIns||0}" style="width:60px;flex:none">
+        <button class="btn btn-xs btn-outline" onclick="ovSaveBuyIns('${p.id}')">Save</button>
+      </div>
+      <div class="ov-field-row">
+        <label>Chip total</label>
+        <input id="ovChips_${p.id}" type="number" min="0" value="${p.chipTotal!=null?p.chipTotal:''}" placeholder="—">
+        <button class="btn btn-xs btn-outline" onclick="ovSaveChips('${p.id}')">Save</button>
+      </div>
+      <div class="ov-actions">
+        <button class="btn btn-xs ${p.active?'btn-outline':'btn-green'}" onclick="toggleActive('${p.id}')">${p.active?'Deactivate':'Activate'}</button>
+        <button class="btn btn-xs ${p.cashedOut?'btn-outline':'btn-outline'}" onclick="ovToggleCashedOut('${p.id}')">${p.cashedOut?'Unmark Cashed':'Mark Cashed'}</button>
+        ${!p.isHost?`<button class="btn btn-xs btn-danger" onclick="removePlayer('${p.id}');renderOvPlayers()">Remove</button>`:''}
+      </div>
+    </div>`).join('');
+}
+
+window.ovSaveName = function(pid){
+  const val=document.getElementById(`ovName_${pid}`).value.trim();
+  if(!val){showToast('Name cannot be empty');return;}
+  const dup=Object.values(R.players||{}).find(p=>p.id!==pid&&p.name.toLowerCase()===val.toLowerCase());
+  if(dup){showToast(`"${val}" is already taken`);return;}
+  dbUpdate(`players/${pid}`,{name:val});
+  showToast('Name updated');
+}
+window.ovSaveBuyIns = function(pid){
+  const val=parseInt(document.getElementById(`ovBuyIns_${pid}`).value);
+  if(isNaN(val)||val<0){showToast('Invalid number');return;}
+  dbUpdate(`players/${pid}`,{buyIns:val});
+  showToast('Buy-ins updated');
+}
+window.ovSaveChips = function(pid){
+  const raw=document.getElementById(`ovChips_${pid}`).value;
+  const val=raw===''?null:parseFloat(raw);
+  if(val!==null&&isNaN(val)){showToast('Invalid amount');return;}
+  dbUpdate(`players/${pid}`,{chipTotal:val,cashedOut:val!==null});
+  showToast('Chip total updated');
+}
+window.ovToggleCashedOut = function(pid){
+  const p=R.players[pid];if(!p)return;
+  dbUpdate(`players/${pid}`,{cashedOut:!p.cashedOut});
+}
+
+function renderOvBets(){
+  const el=document.getElementById('ov-bets');
+  const bets=Object.values(R.bets||{}).sort((a,b)=>a.ts-b.ts);
+  if(!bets.length){el.innerHTML='<div class="empty"><div class="empty-text">No bets yet.</div></div>';return;}
+  el.innerHTML=bets.map(b=>`
+    <div class="ov-row">
+      <div class="ov-row-title">${esc(b.desc)} · <span class="mono val-gold">$${b.amount}</span></div>
+      <div class="ov-field-row">
+        <label>Desc</label>
+        <input id="ovBDesc_${b.id}" value="${esc(b.desc)}">
+        <button class="btn btn-xs btn-outline" onclick="ovSaveBetDesc('${b.id}')">Save</button>
+      </div>
+      <div class="ov-field-row">
+        <label>Amount</label>
+        <input id="ovBAmt_${b.id}" type="number" min="1" value="${b.amount}" style="width:70px;flex:none">
+        <button class="btn btn-xs btn-outline" onclick="ovSaveBetAmt('${b.id}')">Save</button>
+      </div>
+      <div class="ov-actions">
+        ${b.settled?`
+          <button class="btn btn-xs btn-outline" onclick="ovReopenBet('${b.id}')">Reopen</button>
+          <button class="btn btn-xs btn-green" onclick="settleBet('${b.id}','proposer')">🟡 ${esc(pname(b.proposer))} wins</button>
+          <button class="btn btn-xs btn-green" onclick="settleBet('${b.id}','acceptor')">🟢 ${esc(pname(b.acceptor))} wins</button>
+        `:`
+          <button class="btn btn-xs btn-green" onclick="settleBet('${b.id}','proposer')">🟡 ${esc(pname(b.proposer))} wins</button>
+          <button class="btn btn-xs btn-green" onclick="settleBet('${b.id}','acceptor')">🟢 ${esc(pname(b.acceptor))} wins</button>
+        `}
+        <button class="btn btn-xs btn-danger" onclick="deleteBet('${b.id}');renderOvBets()">Delete</button>
+      </div>
+    </div>`).join('');
+}
+window.ovSaveBetDesc = function(bid){
+  const val=document.getElementById(`ovBDesc_${bid}`).value.trim();
+  if(!val)return;
+  dbUpdate(`bets/${bid}`,{desc:val});showToast('Updated');
+}
+window.ovSaveBetAmt = function(bid){
+  const val=parseFloat(document.getElementById(`ovBAmt_${bid}`).value);
+  if(!val||val<=0)return;
+  dbUpdate(`bets/${bid}`,{amount:val});showToast('Updated');
+}
+window.ovReopenBet = function(bid){
+  dbUpdate(`bets/${bid}`,{settled:false,winner:null});showToast('Bet reopened');renderOvBets();
+}
+
+function renderOvGames(){
+  const el=document.getElementById('ov-games');
+  const nitGames=Object.values(R.nitGames||{});
+  const lowGames=Object.values(R.lowGames||{});
+  const n64Games=Object.values(R.n64Games||{});
+  const raceGames=Object.values(R.raceGames||{});
+  const all=[...nitGames,...lowGames,...n64Games,...raceGames];
+  if(!all.length){el.innerHTML='<div class="empty"><div class="empty-text">No games yet.</div></div>';return;}
+
+  let html='';
+  nitGames.forEach(g=>{
+    html+=`<div class="ov-row">
+      <div class="ov-row-title">🎯 Nit Game · $${g.amount}/player</div>
+      <div class="ov-actions">
+        ${g.settled||g.pendingConfirm?`<button class="btn btn-xs btn-outline" onclick="ovReopenNit('${g.id}')">Reopen</button>`:''}
+        <button class="btn btn-xs btn-danger" onclick="deleteNitGame('${g.id}');renderOvGames()">Delete</button>
+      </div>
+      ${g.settled?`<div style="font-size:12px;color:var(--text-dim);margin-top:6px">Loser: ${esc(pname(g.loser))}</div>`:''}
+    </div>`;
+  });
+  lowGames.forEach(g=>{
+    html+=`<div class="ov-row">
+      <div class="ov-row-title">🃏 2/7 · $${g.amount}/player</div>
+      <div class="ov-actions">
+        ${!g.active?`<button class="btn btn-xs btn-outline" onclick="dbUpdate('lowGames/${g.id}',{active:true,settled:false});renderOvGames()">Reopen</button>`:''}
+        <button class="btn btn-xs btn-danger" onclick="deleteLowGame('${g.id}');renderOvGames()">Delete</button>
+      </div>
+    </div>`;
+  });
+  n64Games.forEach(g=>{
+    html+=`<div class="ov-row">
+      <div class="ov-row-title">🎮 ${esc(g.game)} · $${g.amount}/player</div>
+      <div class="ov-actions">
+        ${g.settled?`<button class="btn btn-xs btn-outline" onclick="ovReopenN64('${g.id}')">Reopen</button>`:''}
+        <button class="btn btn-xs btn-danger" onclick="deleteN64Game('${g.id}');renderOvGames()">Delete</button>
+      </div>
+    </div>`;
+  });
+  raceGames.forEach(g=>{
+    html+=`<div class="ov-row">
+      <div class="ov-row-title">🏃 Race · $${g.amount} @ ${g.oddsN}:${g.oddsD}</div>
+      <div class="ov-actions">
+        ${g.settled?`<button class="btn btn-xs btn-outline" onclick="dbUpdate('raceGames/${g.id}',{settled:false,winner:null});renderOvGames()">Reopen</button>`:''}
+        <button class="btn btn-xs btn-danger" onclick="deleteRaceGame('${g.id}');renderOvGames()">Delete</button>
+      </div>
+    </div>`;
+  });
+  el.innerHTML=html;
+}
+window.ovReopenNit = function(id){ dbUpdate(`nitGames/${id}`,{settled:false,active:true,pendingConfirm:false,loser:null});renderOvGames();showToast('Nit game reopened'); }
+window.ovReopenN64 = function(id){ dbUpdate(`n64Games/${id}`,{settled:false,placements:[]});renderOvGames();showToast('Match reopened'); }
+
+function renderOvAdjustments(){
+  const ap=activePlayers();
+  const sel=document.getElementById('adjPlayer');
+  sel.innerHTML=ap.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');
+  const adjs=Object.values(R.adjustments||{}).sort((a,b)=>a.ts-b.ts);
+  const list=document.getElementById('adjList');
+  if(!adjs.length){list.innerHTML='<div style="font-size:12px;color:var(--text-dim)">None yet.</div>';return;}
+  list.innerHTML=adjs.map(a=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;background:var(--surface);border:1px solid var(--border-dim);border-radius:8px;padding:9px 12px;margin-bottom:6px">
+      <div>
+        <div style="font-size:13px">${esc(pname(a.playerId))} · <span class="mono" style="color:${a.amount>=0?'var(--green)':'var(--red-light)'}">${a.amount>=0?'+':''}$${a.amount}</span></div>
+        <div style="font-size:11px;color:var(--text-dim)">${esc(a.note||'')}</div>
+      </div>
+      <button class="btn btn-xs btn-danger" onclick="deleteAdjustment('${a.id}')">✕</button>
+    </div>`).join('');
+}
+window.applyAdjustment = function(){
+  const pid=document.getElementById('adjPlayer').value;
+  const amt=parseFloat(document.getElementById('adjAmount').value);
+  const note=document.getElementById('adjNote').value.trim();
+  if(!pid||isNaN(amt)){showToast('Fill in player and amount');return;}
+  const aid=uid();
+  dbSet(`adjustments/${aid}`,{id:aid,playerId:pid,amount:amt,note,ts:Date.now()});
+  document.getElementById('adjAmount').value='';
+  document.getElementById('adjNote').value='';
+  showToast('Adjustment applied');
+}
+window.deleteAdjustment = function(id){ dbSet(`adjustments/${id}`,null);renderOvAdjustments(); }
 
 // ── HOT DOG O'CLOCK ───────────────────────────────────
 let hdInterval=null,hdAudioCtx=null,hdDogCount=1;
