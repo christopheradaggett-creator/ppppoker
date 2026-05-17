@@ -163,6 +163,8 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
 .n64-header{background:rgba(111,163,216,0.08)}
 .race-card{background:rgba(76,175,130,0.06);border-color:rgba(76,175,130,0.2)}
 .race-header{background:rgba(76,175,130,0.08)}
+.pinata-card{background:rgba(232,74,162,0.06);border-color:rgba(232,74,162,0.25)}
+.pinata-header{background:rgba(232,74,162,0.1)}
 .nit-players{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
 .nit-player{display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:8px;border:1px solid var(--border-dim);background:var(--surface);font-size:13px}
 .nit-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
@@ -239,7 +241,25 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
 @keyframes hdFall{from{transform:translateY(-120px) rotate(var(--rs))}to{transform:translateY(110vh) rotate(var(--re))}}
 @keyframes hdSiren{0%,100%{opacity:0.18}50%{opacity:0.38}}
 
-/* ── Override Panel ── */
+/* ── Stats ── */
+.profile-card{background:var(--surface);border:1px solid var(--border-dim);border-radius:var(--r);overflow:hidden;margin-bottom:10px;transition:border-color .15s}
+.profile-card:hover{border-color:var(--border)}
+.profile-header{display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer}
+.profile-avatar{width:40px;height:40px;border-radius:50%;background:var(--felt-light);border:2px solid var(--border-dim);display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-size:16px;font-weight:700;color:var(--gold);flex-shrink:0}
+.profile-info{flex:1;min-width:0}
+.profile-name{font-size:15px;font-weight:700;color:var(--text)}
+.profile-username{font-family:'DM Mono',monospace;font-size:10px;color:var(--text-dim);letter-spacing:1px}
+.profile-net{font-family:'DM Mono',monospace;font-size:18px;font-weight:600;flex-shrink:0}
+.profile-body{padding:0 16px 14px;border-top:1px solid var(--border-dim);display:none}
+.profile-body.open{display:block}
+.stats-grid-sm{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.stat-sm{background:var(--surface2);border-radius:8px;padding:10px 8px;text-align:center}
+.stat-sm-val{font-family:'DM Mono',monospace;font-size:16px;color:var(--gold);margin-bottom:2px}
+.stat-sm-lbl{font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px}
+.stats-section-lbl{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text-dim);margin:12px 0 6px}
+.stats-bar-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;font-size:12px}
+.stats-bar-track{height:4px;background:var(--border-dim);border-radius:2px;margin-bottom:10px;overflow:hidden}
+.stats-bar-fill{height:100%;border-radius:2px;background:var(--gold)}
 .override-tab{padding:7px 14px;border-radius:20px;border:1px solid var(--border-dim);background:transparent;color:var(--text-dim);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s}
 .override-tab.active{background:var(--red-light);color:#fff;border-color:var(--red-light)}
 .override-tab:hover:not(.active){color:var(--text);border-color:var(--border)}
@@ -321,10 +341,18 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
       <div class="join-err" id="joinErr"></div>
     </div>
 
-    <!-- Step 2: Enter name -->
+    <!-- Step 2: Enter profile -->
     <div id="joinStep2" style="display:none">
-      <label class="join-label">Your Name</label>
-      <input class="join-field" id="joinName" placeholder="First name" maxlength="18">
+      <div style="font-size:12px;color:var(--text-dim);margin-bottom:14px;line-height:1.5">Your profile links your stats across all games.</div>
+      <label class="join-label">First Name</label>
+      <input class="join-field" id="joinFirstName" placeholder="First" maxlength="18">
+      <label class="join-label">Last Name</label>
+      <input class="join-field" id="joinLastName" placeholder="Last" maxlength="18">
+      <label class="join-label">Username (shown at the table)</label>
+      <input class="join-field" id="joinUsername" placeholder="e.g. ChrisD" maxlength="18" style="letter-spacing:1px">
+      <label class="join-label">Favorite Cocktail (optional)</label>
+      <input class="join-field" id="joinFavCocktail" placeholder="e.g. Old Fashioned" maxlength="40">
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px">Username matches you to past games. Use the same one every time.</div>
       <button class="join-btn join-btn-gold" onclick="joinAsPlayer()">Join Game</button>
       <button class="join-btn join-btn-outline" style="margin-top:0" onclick="backToStep1()">← Back</button>
       <div class="join-err" id="joinErr2"></div>
@@ -332,8 +360,14 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
 
     <!-- Create room -->
     <div id="joinCreateRoom" style="display:none">
-      <label class="join-label">Your Name (Host)</label>
-      <input class="join-field" id="hostName" placeholder="First name" maxlength="18" value="Chris">
+      <label class="join-label">First Name</label>
+      <input class="join-field" id="hostFirstName" placeholder="First" maxlength="18" value="Chris">
+      <label class="join-label">Last Name</label>
+      <input class="join-field" id="hostLastName" placeholder="Last" maxlength="18">
+      <label class="join-label">Username</label>
+      <input class="join-field" id="hostUsername" placeholder="e.g. ChrisD" maxlength="18">
+      <label class="join-label">Favorite Cocktail (optional)</label>
+      <input class="join-field" id="hostFavCocktail" placeholder="e.g. Old Fashioned" maxlength="40">
       <label class="join-label">Room Code</label>
       <input class="join-field" id="hostRoomCode" placeholder="e.g. FELT" maxlength="8" style="text-transform:uppercase;letter-spacing:4px;font-size:20px;text-align:center">
       <label class="join-label">Buy-in Amount ($)</label>
@@ -366,6 +400,7 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
     <button class="nav-tab" onclick="switchTab('bets')" id="t-bets">Side Bets</button>
     <button class="nav-tab" onclick="switchTab('games')" id="t-games">Games</button>
     <button class="nav-tab" onclick="switchTab('drinks')" id="t-drinks">🍹 Drinks</button>
+    <button class="nav-tab" onclick="switchTab('stats')" id="t-stats">Stats</button>
     <button class="nav-tab" onclick="switchTab('settle')" id="t-settle">Settle Up</button>
     <button class="nav-tab host-only" onclick="switchTab('history')" id="t-history">History</button>
   </nav>
@@ -413,9 +448,15 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
         <div class="empty-text">No action yet. Get some bets going!</div>
       </div>
       <!-- Hot Dog O'Clock trigger (host only) -->
-      <div id="hotdogBtn" style="display:none;margin-top:20px;text-align:center">
-        <button onclick="triggerHotDogOClock()" style="background:none;border:none;cursor:pointer;font-size:42px;filter:drop-shadow(0 0 8px rgba(255,180,0,0.5));transition:transform .15s" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'">🌭</button>
-        <div class="label" style="margin-top:4px">Hot Dog O'Clock</div>
+      <div id="hotdogBtn" style="display:none;margin-top:20px;gap:32px;justify-content:center;align-items:center">
+        <div style="text-align:center">
+          <button onclick="triggerHotDogOClock()" style="background:none;border:none;cursor:pointer;font-size:42px;filter:drop-shadow(0 0 8px rgba(255,180,0,0.5));transition:transform .15s" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'">🌭</button>
+          <div class="label" style="margin-top:4px">Hot Dog O'Clock</div>
+        </div>
+        <div style="text-align:center">
+          <button onclick="openPinataSetup()" style="background:none;border:none;cursor:pointer;font-size:42px;filter:drop-shadow(0 0 8px rgba(232,74,162,0.5));transition:transform .15s" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'">🪅</button>
+          <div class="label" style="margin-top:4px">Cash Piñata</div>
+        </div>
       </div>
       <!-- Reopen banner — visible to everyone when a hot dog round is active -->
       <div id="hdReopenBanner" style="display:none;margin-top:16px;cursor:pointer;background:rgba(255,107,0,0.12);border:1px solid rgba(255,107,0,0.35);border-radius:12px;padding:12px 16px;display:none;align-items:center;justify-content:space-between" onclick="reopenHotDogOverlay()">
@@ -523,6 +564,18 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
         </div>
         <div id="raceGames"></div>
       </div>
+
+      <!-- Piñata — host only -->
+      <div class="game-card pinata-card host-only">
+        <div class="game-card-header pinata-header">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:18px">🪅</span>
+            <div><div style="font-weight:700;font-size:14px">Cash Piñata</div><div style="font-size:11px;color:var(--text-dim)">Ante in · bid on weapons · swing for cash</div></div>
+          </div>
+          <button class="btn btn-xs btn-gold" onclick="openPinataSetup()">New Piñata</button>
+        </div>
+        <div id="pinataGames"></div>
+      </div>
     </div>
 
     <!-- SETTLE UP -->
@@ -548,12 +601,7 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
         <div style="background:rgba(111,163,216,0.07);border:1px solid rgba(111,163,216,0.2);border-radius:12px;padding:14px 16px">
           <div class="label" style="margin-bottom:10px">Your Order</div>
           <div id="myCurrentOrder" style="font-size:13px;color:var(--text-dim);margin-bottom:12px">No current order</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
-            <button class="drink-preset" onclick="orderDrink('Old Fashioned')">🥃 Old Fashioned</button>
-            <button class="drink-preset" onclick="orderDrink('Manhattan')">🍸 Manhattan</button>
-            <button class="drink-preset" onclick="orderDrink('Gin & Tonic')">🫧 Gin & Tonic</button>
-            <button class="drink-preset" onclick="orderDrink('Southside Sour')">🍋 Southside Sour</button>
-          </div>
+          <div id="drinkPresetGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px"></div>
           <div class="row">
             <input class="field" id="drinkCustomInput" placeholder="Custom order or notes…" maxlength="60" onkeydown="if(event.key==='Enter')orderCustomDrink()">
             <button class="btn btn-gold btn-sm" onclick="orderCustomDrink()">Order</button>
@@ -567,6 +615,26 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
       <div id="drinksEmpty" class="empty" style="display:none">
         <div class="empty-icon">🍹</div>
         <div class="empty-text">No orders yet.<br>Beer is self-serve.</div>
+      </div>
+    </div>
+
+    <!-- STATS -->
+    <div class="section" id="sec-stats">
+      <div class="sec-header" style="margin-top:4px">
+        <div class="sec-title">All-Time Stats</div>
+        <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text-dim)" id="statsPlayerCount"></div>
+      </div>
+      <!-- Sort controls -->
+      <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap" id="statsSortRow">
+        <button class="preset active" onclick="setStatsSort('net')" id="ss-net">Net $</button>
+        <button class="preset" onclick="setStatsSort('games')" id="ss-games">Games</button>
+        <button class="preset" onclick="setStatsSort('winrate')" id="ss-winrate">Win Rate</button>
+        <button class="preset" onclick="setStatsSort('hotdogs')" id="ss-hotdogs">🌭</button>
+      </div>
+      <div id="statsProfiles"></div>
+      <div id="statsEmpty" class="empty" style="display:none">
+        <div class="empty-icon">📊</div>
+        <div class="empty-text">No profiles yet.<br>Players register when they join.</div>
       </div>
     </div>
 
@@ -589,6 +657,38 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
 <!-- END OF GAME CEREMONY -->
 <div id="ceremonyOverlay">
   <div class="ceremony-stage" id="ceremonyStage"></div>
+</div>
+
+<!-- Piñata Reveal (all clients) -->
+<div id="pinataRevealOverlay" style="display:none;position:fixed;inset:0;z-index:995;overflow:hidden;cursor:pointer" onclick="closePinataReveal()">
+  <div id="pinataConfettiRain" style="position:absolute;inset:0;pointer-events:none"></div>
+  <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none">
+    <div id="pinataMainEmoji" style="font-size:90px;animation:hdBounce 0.6s ease-in-out infinite alternate;filter:drop-shadow(0 0 20px rgba(232,74,162,0.8))">🪅</div>
+    <div style="font-family:'Playfair Display',serif;font-size:34px;font-weight:900;color:#e84aa2;text-shadow:0 0 30px rgba(232,74,162,0.8);margin-top:14px;animation:hdPulse .7s ease-in-out infinite alternate">CASH</div>
+    <div style="font-family:'Playfair Display',serif;font-size:34px;font-weight:900;color:#ffcc00;text-shadow:0 0 30px rgba(255,200,0,0.8);animation:hdPulse .7s ease-in-out infinite alternate 0.35s">PIÑATA</div>
+    <!-- Player bidding card -->
+    <div id="pinataBidCard" style="display:none;margin-top:24px;background:rgba(0,0,0,0.7);border:1px solid rgba(232,74,162,0.4);border-radius:16px;padding:18px 24px;text-align:center;pointer-events:all;min-width:280px">
+      <div style="font-size:13px;color:rgba(255,255,255,0.7);margin-bottom:12px">Bid for a premium weapon — highest bidder wins 🏏</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px" id="pinataBidOptions"></div>
+      <div id="pinataBidConfirm" style="display:none;color:#4caf82;font-size:13px;font-weight:600">✓ Bid placed!</div>
+    </div>
+    <!-- Host sees bids live -->
+    <div id="pinataBidTally" style="display:none;margin-top:24px;background:rgba(0,0,0,0.7);border:1px solid rgba(232,74,162,0.4);border-radius:16px;padding:18px 24px;pointer-events:all;min-width:280px">
+      <div style="font-size:13px;font-weight:700;color:#ffcc00;margin-bottom:12px;text-align:center">⚡ Live Bids</div>
+      <div id="pinataBidTallyRows"></div>
+      <button onclick="closePinataRevealAndSettle()" style="width:100%;margin-top:14px;padding:11px;border-radius:10px;border:none;background:#e84aa2;color:#fff;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer">Lock Bids & Start 🪅</button>
+    </div>
+    <div class="label" style="margin-top:16px;animation:hdFade 1s ease-in-out infinite alternate;pointer-events:none">tap outside to dismiss</div>
+  </div>
+</div>
+
+<!-- Piñata host management panel (visible after bids locked) -->
+<div class="overlay" id="pinataManageOverlay" style="display:none" onclick="if(event.target===this)closeModal('pinataManageOverlay')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">🪅 Piñata in Progress</div>
+    <div id="pinataManageBody"></div>
+  </div>
 </div>
 
 <!-- HOT DOG O'CLOCK -->
@@ -872,8 +972,67 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
   </div>
 </div>
 
+<!-- Piñata Setup (host only) -->
+<div class="overlay" id="pinataSetupOverlay" style="display:none" onclick="if(event.target===this)closeModal('pinataSetupOverlay')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">🪅 Cash Piñata Setup</div>
+    <div class="form-row">
+      <label class="field-label">Ante per player ($) — everyone pays, everyone gets a stick</label>
+      <input class="field" id="pinataAnte" type="number" min="1" placeholder="e.g. 5">
+      <div class="presets">
+        <button class="preset" onclick="setAmt('pinataAnte',5)">$5</button>
+        <button class="preset" onclick="setAmt('pinataAnte',10)">$10</button>
+        <button class="preset" onclick="setAmt('pinataAnte',20)">$20</button>
+      </div>
+    </div>
+    <div class="form-row">
+      <label class="field-label">Select players</label>
+      <div class="sel-grid" id="pinataPlayerSel"></div>
+    </div>
+    <div class="form-row" style="background:rgba(232,74,162,0.06);border:1px solid rgba(232,74,162,0.2);border-radius:10px;padding:12px">
+      <div style="font-size:12px;font-weight:600;color:#e84aa2;margin-bottom:10px">🏏 Premium Weapons — open bidding, players submit in-app</div>
+      <div style="font-size:11px;color:var(--text-dim);margin-bottom:10px">Weapon names are editable in Override → Settings</div>
+      <div style="display:flex;gap:8px;margin-bottom:6px">
+        <div class="field" style="flex:1;padding:8px 12px;font-size:13px;color:var(--text-dim)" id="weapon1Label">Bat</div>
+        <div class="field" style="flex:1;padding:8px 12px;font-size:13px;color:var(--text-dim)" id="weapon2Label">Crowbar</div>
+      </div>
+      <div style="font-size:11px;color:var(--text-dim)">Players will see a bidding screen when you launch the piñata.</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" style="flex:1" onclick="closeModal('pinataSetupOverlay')">Cancel</button>
+      <button class="btn btn-gold" style="flex:2" onclick="launchPinata()">🪅 Launch It!</button>
+    </div>
+  </div>
+</div>
+
+<!-- Piñata swing modal (host enters real amount) -->
+<div class="overlay" id="pinataSwingOverlay" style="display:none" onclick="if(event.target===this)closeModal('pinataSwingOverlay')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="pinataSwingTitle">Record Swing</div>
+    <div style="text-align:center;padding:10px 0 18px">
+      <div id="pinataSwingWeaponEmoji" style="font-size:40px;margin-bottom:6px"></div>
+      <div id="pinataSwingName" style="font-family:'Playfair Display',serif;font-size:20px;color:var(--gold-light);margin-bottom:2px"></div>
+      <div id="pinataSwingWeapon" style="font-size:12px;color:var(--text-dim)"></div>
+    </div>
+    <div class="form-row">
+      <label class="field-label">How much fell out? ($)</label>
+      <input class="field" id="pinataFellOut" type="number" min="0" step="0.01" placeholder="Enter real amount">
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border-dim);border-radius:9px;padding:11px 14px;margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-dim)">
+        <span>Pot remaining</span><span class="mono val-gold" id="pinataRemaining"></span>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" style="flex:1" onclick="closeModal('pinataSwingOverlay')">Cancel</button>
+      <button class="btn btn-gold" style="flex:2" onclick="recordPinataSwing()">Record 💸</button>
+    </div>
+  </div>
+</div>
+
 <!-- End night confirm -->
-<!-- Override Panel -->
 <div class="overlay" id="overrideOverlay" style="display:none" onclick="if(event.target===this)closeModal('overrideOverlay')">
   <div class="modal" style="max-height:92vh">
     <div class="modal-handle"></div>
@@ -886,6 +1045,7 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
       <button class="override-tab" onclick="switchOverrideTab('bets')" id="ot-bets">Bets</button>
       <button class="override-tab" onclick="switchOverrideTab('games')" id="ot-games">Games</button>
       <button class="override-tab" onclick="switchOverrideTab('adjustments')" id="ot-adjustments">Adjustments</button>
+      <button class="override-tab" onclick="switchOverrideTab('menu')" id="ot-menu">Drink Menu</button>
     </div>
     <div id="ov-players" class="ov-section"></div>
     <div id="ov-bets" class="ov-section" style="display:none"></div>
@@ -906,6 +1066,14 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
       <button class="btn btn-gold btn-full" onclick="applyAdjustment()">Apply Adjustment</button>
       <div class="label" style="margin-top:14px;margin-bottom:8px">Existing Adjustments</div>
       <div id="adjList"></div>
+    </div>
+    <div id="ov-menu" class="ov-section" style="display:none">
+      <div style="font-size:12px;color:var(--text-dim);margin-bottom:14px;line-height:1.5">Add, remove, or rename drinks. Changes apply immediately to the order screen.</div>
+      <div id="menuItemsList" style="margin-bottom:14px"></div>
+      <div class="row">
+        <input class="field" id="newMenuItemInput" placeholder="e.g. Negroni" maxlength="40" onkeydown="if(event.key==='Enter')addMenuItem()">
+        <button class="btn btn-gold btn-sm" onclick="addMenuItem()">Add</button>
+      </div>
     </div>
   </div>
 </div>
@@ -941,6 +1109,7 @@ function switchTab(t){
   if(t==='settle'&&typeof renderSettle==='function')renderSettle();
   if(t==='history'&&typeof renderHistory==='function')renderHistory();
   if(t==='drinks'&&typeof renderDrinks==='function')renderDrinks();
+  if(t==='stats'&&typeof renderStats==='function')renderStats();
 }
 function fabAction(){ if(curTab==='bets'&&typeof openBetModal==='function')openBetModal(); }
 
@@ -1011,26 +1180,38 @@ window.joinWithCode = async function(){
   document.getElementById('joinErr').textContent='';
 }
 window.joinAsPlayer = async function(){
-  const name = document.getElementById('joinName').value.trim();
-  if(!name){ document.getElementById('joinErr2').textContent='Enter your name'; return; }
+  const firstName = document.getElementById('joinFirstName').value.trim();
+  const lastName = document.getElementById('joinLastName').value.trim();
+  const username = document.getElementById('joinUsername').value.trim();
+  if(!firstName){ document.getElementById('joinErr2').textContent='Enter your first name'; return; }
+  if(!username){ document.getElementById('joinErr2').textContent='Enter a username'; return; }
+  const displayName = username; // username shown at table
   document.getElementById('joinErr2').textContent='Joining…';
 
-  // Check for duplicate name in room
+  // Check for duplicate username in room
   const snap = await db.ref(`rooms/${SESSION.roomCode}/players`).once('value');
   const existing = Object.values(snap.val()||{});
-  const duplicate = existing.find(p=>p.name.toLowerCase()===name.toLowerCase());
+  const duplicate = existing.find(p=>p.name.toLowerCase()===username.toLowerCase());
   if(duplicate){
-    document.getElementById('joinErr2').textContent=`"${name}" is already taken — try a last initial or nickname`;
+    document.getElementById('joinErr2').textContent=`"${username}" is already in this game — try a different username`;
     return;
   }
 
   const pid = uid();
   SESSION.playerId = pid;
-  SESSION.playerName = name;
+  SESSION.playerName = displayName;
+  SESSION.playerUsername = username;
   SESSION.role = 'player';
+
+  const favCocktail = document.getElementById('joinFavCocktail').value.trim();
+  // Register/update global profile
+  await registerProfile(username, firstName, lastName, favCocktail);
+
   await db.ref(`rooms/${SESSION.roomCode}/players/${pid}`).set({
-    id:pid, name, active:true, buyIns:0, chipTotal:null, cashedOut:false, isHost:false, joinedAt:Date.now()
+    id:pid, name:displayName, firstName, lastName, username,
+    active:true, buyIns:0, chipTotal:null, cashedOut:false, isHost:false, joinedAt:Date.now()
   });
+  localStorage.setItem('ppppoker_name', username);
   saveSession();
   enterApp();
 }
@@ -1055,7 +1236,9 @@ window.createRoom = async function(){
   enterApp();
 }
 window.createRoom = async function(){
-  const name = document.getElementById('hostName').value.trim()||'Chris';
+  const firstName = document.getElementById('hostFirstName').value.trim()||'Chris';
+  const lastName = document.getElementById('hostLastName').value.trim();
+  const username = document.getElementById('hostUsername').value.trim()||firstName;
   const code = document.getElementById('hostRoomCode').value.trim().toUpperCase();
   const buyIn = parseInt(document.getElementById('hostBuyIn').value)||25;
   if(!code){ document.getElementById('joinErr3').textContent='Enter a room code'; return; }
@@ -1063,15 +1246,23 @@ window.createRoom = async function(){
   const pid = uid();
   SESSION.roomCode = code;
   SESSION.playerId = pid;
-  SESSION.playerName = name;
+  SESSION.playerName = username;
+  SESSION.playerUsername = username;
   SESSION.role = 'host';
+
+  const favCocktail = document.getElementById('hostFavCocktail').value.trim();
+  // Register host profile
+  await registerProfile(username, firstName, lastName, favCocktail);
+
   const d = new Date();
   const nightName = d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
   await db.ref(`rooms/${code}`).set({
     nightName, buyIn, createdAt:Date.now(),
-    players:{ [pid]:{ id:pid,name,active:true,buyIns:0,chipTotal:null,cashedOut:false,isHost:true,joinedAt:Date.now() }},
+    players:{ [pid]:{ id:pid, name:username, firstName, lastName, username,
+      active:true, buyIns:0, chipTotal:null, cashedOut:false, isHost:true, joinedAt:Date.now() }},
     bets:{}, nitGames:{}, lowGames:{}, n64Games:{}, raceGames:{}, drinks:{}, history:{}
   });
+  localStorage.setItem('ppppoker_name', username);
   saveSession();
   enterApp();
 }
@@ -1202,8 +1393,8 @@ function enterApp(){
     if(!snap.exists()) return;
     R = snap.val();
     R.players = R.players||{}; R.bets = R.bets||{}; R.nitGames = R.nitGames||{};
-    R.lowGames = R.lowGames||{}; R.n64Games = R.n64Games||{}; R.raceGames = R.raceGames||{};
-    R.drinks = R.drinks||{}; R.hotdogOrders = R.hotdogOrders||{}; R.buyInRequests = R.buyInRequests||{}; R.adjustments = R.adjustments||{}; R.history = R.history||{};
+    R.lowGames = R.lowGames||{}; R.n64Games = R.n64Games||{}; R.raceGames = R.raceGames||{}; R.pinataGames = R.pinataGames||{};
+    R.drinks = R.drinks||{}; R.hotdogOrders = R.hotdogOrders||{}; R.buyInRequests = R.buyInRequests||{}; R.adjustments = R.adjustments||{}; R.menu = R.menu||null; R.history = R.history||{};
     // Sync banker role to SESSION if my player record was updated
     if(SESSION.playerId&&R.players[SESSION.playerId]){
       const me=R.players[SESSION.playerId];
@@ -1254,6 +1445,23 @@ function enterApp(){
       buildCeremony();
     }
   });
+
+  // Piñata reveal — fires on all non-host clients when host launches
+  db.ref(`rooms/${SESSION.roomCode}/activePinata`).on('value', snap => {
+    if(snap.val()&&!isHost()){
+      activePinataId=snap.val().id;
+      showPinataReveal(snap.val().id, false);
+    }
+  });
+
+  // Live bid tally refresh for host when reveal is open
+  db.ref(`rooms/${SESSION.roomCode}/pinataGames`).on('value', snap => {
+    R.pinataGames = snap.val()||{};
+    if(isHost()&&activePinataId&&document.getElementById('pinataRevealOverlay').style.display==='block'){
+      renderBidTally(activePinataId);
+    }
+    if(curTab==='games') renderPinataGames();
+  });
 }
 
 // ── ROOM INFO / QR ────────────────────────────────────
@@ -1292,7 +1500,7 @@ window.shareRoomSMS = function(){
 
 function renderAll(){
   renderLeaderboard(); renderPlayers(); renderBets();
-  renderNitGames(); renderLowGames(); renderN64Games(); renderRaceGames();
+  renderNitGames(); renderLowGames(); renderN64Games(); renderRaceGames(); renderPinataGames();
   renderDrinks();
   updateBadges();
   if(curTab==='settle')renderSettle();
@@ -1566,7 +1774,7 @@ function renderLeaderboard(){
   const rows=document.getElementById('leaderboardRows');
   const empty=document.getElementById('leaderboardEmpty');
   const hdBtn=document.getElementById('hotdogBtn');
-  if(hdBtn&&isHost())hdBtn.style.display='block';
+  if(hdBtn&&isHost())hdBtn.style.display='flex';
 
   if(!ap.length){rows.innerHTML='';empty.style.display='block';return;}
 
@@ -1792,9 +2000,18 @@ window.closeNightFinal = async function(){
     nitGames:nightData.nitGames,lowGames:nightData.lowGames,
     n64Games:nightData.n64Games,raceGames:nightData.raceGames
   });
+
+  // Update lifetime stats for all registered profiles
+  await updateLifetimeStats({
+    nightName:R.nightName, date:new Date().toISOString(), buyIn:R.buyIn,
+    players:nightData.players, bets:nightData.bets,
+    nitGames:nightData.nitGames, lowGames:nightData.lowGames,
+    n64Games:nightData.n64Games, raceGames:nightData.raceGames,
+    hotdogOrders:nightData.hotdogOrders
+  });
   const d=new Date();
   const newNight=d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
-  const resetUpd={nightName:newNight,bets:null,nitGames:null,lowGames:null,n64Games:null,raceGames:null,ceremony:null};
+  const resetUpd={nightName:newNight,bets:null,nitGames:null,lowGames:null,n64Games:null,raceGames:null,ceremony:null,pinataGames:null,activePinata:null};
   Object.keys(R.players||{}).forEach(pid=>{
     resetUpd[`players/${pid}/buyIns`]=0;
     resetUpd[`players/${pid}/chipTotal`]=null;
@@ -2423,14 +2640,16 @@ function renderHistory(){
 }
 
 // ── DRINKS ────────────────────────────────────────────
-const MENU = ['Old Fashioned','Manhattan','Gin & Tonic','Southside Sour'];
+// Default menu — overridden by Firebase R.menu if set
+const DEFAULT_MENU = ['Old Fashioned','Manhattan','Gin & Tonic','Southside Sour'];
+function getMenu(){ return (R.menu && R.menu.length) ? R.menu : DEFAULT_MENU; }
 
 window.orderDrink = function(drink){ placeOrder(drink, ''); }
 window.orderCustomDrink = function(){
   const inp = document.getElementById('drinkCustomInput');
   const val = inp.value.trim(); if(!val){showToast('Enter a drink or note');return;}
   // Check if it matches a preset
-  const matched = MENU.find(m=>m.toLowerCase()===val.toLowerCase());
+  const matched = getMenu().find(m=>m.toLowerCase()===val.toLowerCase());
   placeOrder(matched||'Custom', matched?'':val);
   inp.value='';
 }
@@ -2461,6 +2680,12 @@ window.clearAllDrinks = function(){
 }
 
 function renderDrinks(){
+  // Render preset buttons dynamically from menu
+  const presetGrid=document.getElementById('drinkPresetGrid');
+  if(presetGrid){
+    const drinkEmojis={'Old Fashioned':'🥃','Manhattan':'🍸','Gin & Tonic':'🫧','Southside Sour':'🍋'};
+    presetGrid.innerHTML=getMenu().map(d=>`<button class="drink-preset" onclick="orderDrink('${esc(d)}')">${drinkEmojis[d]||'🍹'} ${esc(d)}</button>`).join('');
+  }
   const orders = Object.values(R.drinks||{}).sort((a,b)=>a.ts-b.ts);
   const myOrder = SESSION.playerId ? (R.drinks||{})[SESSION.playerId] : null;
 
@@ -2474,6 +2699,12 @@ function renderDrinks(){
     myEl.textContent='No current order';
   }
 
+  // Pre-fill with favorite cocktail if known
+  if(SESSION.profileKey){
+    db.ref(`profiles/${SESSION.profileKey}/favCocktail`).once('value').then(snap=>{
+      if(snap.val()) document.getElementById('drinkCustomInput').value=snap.val();
+    });
+  }
   // Hide order card for spectators
   document.getElementById('myOrderCard').style.display = SESSION.role==='spectator'?'none':'block';
 
@@ -2528,6 +2759,42 @@ window.switchOverrideTab = function(tab){
   if(tab==='bets') renderOvBets();
   if(tab==='games') renderOvGames();
   if(tab==='adjustments') renderOvAdjustments();
+  if(tab==='menu') renderOvMenu();
+}
+
+function renderOvMenu(){
+  const menu=getMenu();
+  const el=document.getElementById('menuItemsList');
+  el.innerHTML=menu.map((item,i)=>`
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <input class="field field-sm" style="flex:1" id="menuItem_${i}" value="${esc(item)}" maxlength="40">
+      <button class="btn btn-xs btn-outline" onclick="saveMenuItem(${i})">Save</button>
+      <button class="btn btn-xs btn-danger" onclick="removeMenuItem(${i})">✕</button>
+    </div>`).join('');
+}
+
+window.saveMenuItem = function(i){
+  const val=document.getElementById(`menuItem_${i}`).value.trim();
+  if(!val){showToast('Name cannot be empty');return;}
+  const menu=[...getMenu()];
+  menu[i]=val;
+  dbSet('menu',menu);
+  showToast('Menu updated');
+}
+window.removeMenuItem = function(i){
+  const menu=[...getMenu()];
+  menu.splice(i,1);
+  dbSet('menu',menu.length?menu:DEFAULT_MENU);
+  showToast('Item removed');
+}
+window.addMenuItem = function(){
+  const inp=document.getElementById('newMenuItemInput');
+  const val=inp.value.trim();if(!val)return;
+  if(getMenu().find(m=>m.toLowerCase()===val.toLowerCase())){showToast('Already on the menu');return;}
+  const menu=[...getMenu(),val];
+  dbSet('menu',menu);
+  inp.value='';
+  showToast(`${val} added to menu`);
 }
 
 function renderOvPlayers(){
@@ -2710,7 +2977,530 @@ window.applyAdjustment = function(){
 }
 window.deleteAdjustment = function(id){ dbSet(`adjustments/${id}`,null);renderOvAdjustments(); }
 
-// ── HOT DOG O'CLOCK ───────────────────────────────────
+// ── PROFILES & LIFETIME STATS ─────────────────────────
+async function registerProfile(username, firstName, lastName, favCocktail=''){
+  const key = username.toLowerCase().replace(/[^a-z0-9]/g,'_');
+  const existing = await db.ref(`profiles/${key}`).once('value');
+  if(!existing.exists()){
+    await db.ref(`profiles/${key}`).set({
+      username, firstName, lastName, favCocktail, key,
+      createdAt: Date.now(),
+      stats: emptyStats()
+    });
+  } else {
+    const upd = { firstName, lastName, username };
+    if(favCocktail) upd.favCocktail = favCocktail;
+    await db.ref(`profiles/${key}`).update(upd);
+  }
+  SESSION.profileKey = key;
+}
+
+function emptyStats(){
+  return {
+    gamesPlayed:0, totalNetPoker:0, totalNetSides:0, totalNet:0,
+    totalBuyIns:0, biggestPot:0, biggestWin:0, biggestLoss:0,
+    sideBetsWon:0, sideBetsLost:0,
+    nitLosses:0, nitWins:0,
+    lowHits:0,
+    n64Wins:0, n64Losses:0,
+    raceWins:0, raceLosses:0,
+    hotdogsOrdered:0,
+    gameHistory:[] // [{date, nightName, netPoker, netSides, net}]
+  };
+}
+
+// Called when a game is archived — update stats for all matched profiles
+async function updateLifetimeStats(nightData){
+  const players = Object.values(nightData.players||{});
+  const bets = Object.values(nightData.bets||{});
+  const nitGames = Object.values(nightData.nitGames||{});
+  const lowGames = Object.values(nightData.lowGames||{});
+  const n64Games = Object.values(nightData.n64Games||{});
+  const raceGames = Object.values(nightData.raceGames||{});
+  const buyIn = nightData.buyIn||25;
+
+  for(const p of players){
+    const username = p.username||p.name;
+    const key = username.toLowerCase().replace(/[^a-z0-9]/g,'_');
+    const snap = await db.ref(`profiles/${key}`).once('value');
+    if(!snap.exists()) continue; // no profile registered
+    const profile = snap.val();
+    const s = profile.stats || emptyStats();
+
+    // Poker net
+    const chipNet = p.chipTotal!=null ? p.chipTotal-(p.buyIns||0)*buyIn : 0;
+
+    // Side bets
+    let sideNet=0;
+    bets.filter(b=>b.settled).forEach(b=>{
+      const siders=b.siders||[];
+      if(b.winner==='proposer'){
+        if(b.proposer===p.id){sideNet+=b.amount*(1+siders.length);s.sideBetsWon++;}
+        else if(siders.includes(p.id)){sideNet+=b.amount;s.sideBetsWon++;}
+        else if(b.acceptor===p.id){sideNet-=b.amount*(1+siders.length);s.sideBetsLost++;}
+      }else{
+        if(b.acceptor===p.id){sideNet+=b.amount*(1+siders.length);s.sideBetsWon++;}
+        else if(b.proposer===p.id){sideNet-=b.amount*(1+siders.length);s.sideBetsLost++;}
+        else if(siders.includes(p.id)){sideNet-=b.amount;s.sideBetsLost++;}
+      }
+      if(b.amount>s.biggestPot) s.biggestPot=b.amount;
+    });
+
+    // Nit games
+    nitGames.filter(g=>g.settled&&(g.players||[]).includes(p.id)).forEach(g=>{
+      const payout=g.amount*((g.players||[]).length-1);
+      if(g.loser===p.id){sideNet-=payout;s.nitLosses++;}
+      else{sideNet+=g.amount;s.nitWins++;}
+    });
+
+    // 2/7
+    lowGames.forEach(g=>{
+      Object.values(g.hits||{}).forEach(h=>{
+        if(!(g.players||[]).includes(p.id))return;
+        const pot=g.amount*((g.players||[]).length-1);
+        if(h.winner===p.id){sideNet+=pot;s.lowHits++;}
+        else sideNet-=g.amount;
+      });
+    });
+
+    // N64
+    n64Games.filter(g=>g.settled&&(g.players||[]).includes(p.id)).forEach(g=>{
+      const splits=calcN64SplitsFromData(g);
+      const delta=splits[p.id]||0;
+      sideNet+=delta;
+      if(delta>0) s.n64Wins++;
+      else s.n64Losses++;
+    });
+
+    // Races
+    raceGames.filter(g=>g.settled&&(g.runners||[]).includes(p.id)).forEach(g=>{
+      const losers=(g.runners||[]).filter(r=>r!==g.winner);
+      if(g.winner===p.id){sideNet+=losers.length*(g.amount*g.oddsN/g.oddsD);s.raceWins++;}
+      else{sideNet-=(g.amount*g.oddsN/g.oddsD);s.raceLosses++;}
+    });
+
+    const net=chipNet+sideNet;
+    s.gamesPlayed++;
+    s.totalBuyIns+=(p.buyIns||0);
+    s.totalNetPoker+=chipNet;
+    s.totalNetSides+=sideNet;
+    s.totalNet+=net;
+    if(net>s.biggestWin) s.biggestWin=net;
+    if(net<s.biggestLoss) s.biggestLoss=net;
+    if(!s.gameHistory) s.gameHistory=[];
+    s.gameHistory.push({date:nightData.date,nightName:nightData.nightName,netPoker:chipNet,netSides:sideNet,net});
+
+    // Hot dogs
+    const myHdOrder=(nightData.hotdogOrders||{})[p.id];
+    if(myHdOrder) s.hotdogsOrdered=(s.hotdogsOrdered||0)+myHdOrder.count;
+
+    await db.ref(`profiles/${key}/stats`).set(s);
+  }
+}
+
+function calcN64SplitsFromData(g){
+  const res={};if(!g.placements||!g.placements.length)return res;
+  if(g.teamMode){
+    const winTeam=g.placements[0];const loseTeam=winTeam==='A'?'B':'A';
+    const winners=(g.teams||{})[winTeam]||[];const losers=(g.teams||{})[loseTeam]||[];
+    const pot=losers.length*g.amount;
+    winners.forEach(p=>res[p]=pot/winners.length);losers.forEach(p=>res[p]=-g.amount);
+  }else{
+    const total=(g.players||[]).length*g.amount;
+    if(g.split==='winner-take-all'){
+      (g.players||[]).forEach(p=>res[p]=-g.amount);res[g.placements[0]]=total-g.amount;
+    }else{
+      const parts=(g.split||'').split('-').map(Number);
+      (g.players||[]).forEach((p,i)=>{res[p]=total*(parts[i]||0)/100-g.amount;});
+    }
+  }
+  return res;
+}
+
+// ── RENDER STATS ──────────────────────────────────────
+let statsSort='net';
+window.setStatsSort=function(s){
+  statsSort=s;
+  document.querySelectorAll('#statsSortRow .preset').forEach(b=>b.classList.remove('active'));
+  document.getElementById('ss-'+s).classList.add('active');
+  renderStats();
+}
+
+function renderStats(){
+  db.ref('profiles').once('value').then(snap=>{
+    const profiles=Object.values(snap.val()||{});
+    const el=document.getElementById('statsProfiles');
+    const empty=document.getElementById('statsEmpty');
+    const countEl=document.getElementById('statsPlayerCount');
+
+    if(!profiles.length){el.innerHTML='';empty.style.display='block';return;}
+    empty.style.display='none';
+    countEl.textContent=`${profiles.length} registered`;
+
+    // Sort
+    profiles.sort((a,b)=>{
+      const sa=a.stats||emptyStats();const sb=b.stats||emptyStats();
+      if(statsSort==='net') return sb.totalNet-sa.totalNet;
+      if(statsSort==='games') return sb.gamesPlayed-sa.gamesPlayed;
+      if(statsSort==='winrate'){
+        const wr=s=>s.gamesPlayed?s.totalNet/s.gamesPlayed:0;
+        return wr(sb)-wr(sa);
+      }
+      if(statsSort==='hotdogs') return (sb.hotdogsOrdered||0)-(sa.hotdogsOrdered||0);
+      return 0;
+    });
+
+    const maxNet=Math.max(...profiles.map(p=>(p.stats||{}).totalNet||0),1);
+
+    el.innerHTML=profiles.map((profile,i)=>{
+      const s=profile.stats||emptyStats();
+      const net=s.totalNet||0;
+      const netCls=net>0?'val-pos':net<0?'val-neg':'val-zero';
+      const netStr=net>0?`+$${Math.round(net)}`:net<0?`-$${Math.abs(Math.round(net))}`:'$0';
+      const winRate=s.sideBetsWon+s.sideBetsLost>0?Math.round(s.sideBetsWon/(s.sideBetsWon+s.sideBetsLost)*100):0;
+      const barWidth=maxNet>0?Math.round(Math.abs(net)/maxNet*100):0;
+      const barColor=net>=0?'var(--green)':'var(--red-light)';
+
+      return `<div class="profile-card">
+        <div class="profile-header" onclick="toggleProfileBody('pb_${i}')">
+          <div class="profile-avatar">${(profile.firstName||profile.username||'?')[0].toUpperCase()}</div>
+          <div class="profile-info">
+            <div class="profile-name">${esc(profile.firstName||'')} ${esc(profile.lastName||'')}</div>
+            <div class="profile-username">@${esc(profile.username)}${profile.favCocktail?` · 🍹 ${esc(profile.favCocktail)}`:''}</div>
+          </div>
+          <div class="profile-net ${netCls}">${netStr}</div>
+        </div>
+        <div class="profile-body" id="pb_${i}">
+          <div class="stats-grid-sm">
+            <div class="stat-sm"><div class="stat-sm-val">${s.gamesPlayed||0}</div><div class="stat-sm-lbl">Games</div></div>
+            <div class="stat-sm"><div class="stat-sm-val" style="color:var(--gold)">$${Math.round(s.totalNet/Math.max(s.gamesPlayed,1))}</div><div class="stat-sm-lbl">Per Game</div></div>
+            <div class="stat-sm"><div class="stat-sm-val">${winRate}%</div><div class="stat-sm-lbl">Bet W%</div></div>
+            <div class="stat-sm"><div class="stat-sm-val" style="color:var(--green)">+$${Math.round(s.biggestWin||0)}</div><div class="stat-sm-lbl">Best Night</div></div>
+            <div class="stat-sm"><div class="stat-sm-val" style="color:var(--red-light)">-$${Math.abs(Math.round(s.biggestLoss||0))}</div><div class="stat-sm-lbl">Worst Night</div></div>
+            <div class="stat-sm"><div class="stat-sm-val">${s.hotdogsOrdered||0} 🌭</div><div class="stat-sm-lbl">Hot Dogs</div></div>
+          </div>
+          <div style="height:4px;background:var(--border-dim);border-radius:2px;margin:12px 0 4px;overflow:hidden"><div style="height:100%;width:${barWidth}%;background:${barColor};border-radius:2px"></div></div>
+          <div class="stats-section-lbl">Poker</div>
+          <div class="stats-bar-row"><span style="color:var(--text-dim)">Total buy-ins</span><span class="mono">${s.totalBuyIns||0}</span></div>
+          <div class="stats-bar-row"><span style="color:var(--text-dim)">Net chips</span><span class="mono ${s.totalNetPoker>=0?'val-pos':'val-neg'}">${s.totalNetPoker>=0?'+':''}$${Math.round(s.totalNetPoker||0)}</span></div>
+          <div class="stats-section-lbl">Side Action</div>
+          <div class="stats-bar-row"><span style="color:var(--text-dim)">Net sides</span><span class="mono ${s.totalNetSides>=0?'val-pos':'val-neg'}">${s.totalNetSides>=0?'+':''}$${Math.round(s.totalNetSides||0)}</span></div>
+          <div class="stats-bar-row"><span style="color:var(--text-dim)">Bets W/L</span><span class="mono">${s.sideBetsWon||0}/${s.sideBetsLost||0}</span></div>
+          <div class="stats-bar-row"><span style="color:var(--text-dim)">Nit losses</span><span class="mono val-neg">${s.nitLosses||0}</span></div>
+          <div class="stats-bar-row"><span style="color:var(--text-dim)">2/7 hits</span><span class="mono val-gold">${s.lowHits||0}</span></div>
+          <div class="stats-bar-row"><span style="color:var(--text-dim)">N64 W/L</span><span class="mono">${s.n64Wins||0}/${s.n64Losses||0}</span></div>
+          <div class="stats-bar-row"><span style="color:var(--text-dim)">Race W/L</span><span class="mono">${s.raceWins||0}/${s.raceLosses||0}</span></div>
+          ${s.biggestPot?`<div class="stats-bar-row"><span style="color:var(--text-dim)">Biggest pot</span><span class="mono val-gold">$${s.biggestPot}</span></div>`:''}
+        </div>
+      </div>`;
+    }).join('');
+  });
+}
+
+window.toggleProfileBody=function(id){
+  const el=document.getElementById(id);
+  if(el) el.classList.toggle('open');
+}
+
+// ── CASH PIÑATA ───────────────────────────────────────
+// Weapon names editable via R.pinataWeapons (Override → Settings)
+function getPinataWeapons(){
+  return {
+    stick:  { name: R.pinataWeapons?.stick||'Stick',   emoji:'🪄' },
+    bat:    { name: R.pinataWeapons?.bat||'Bat',       emoji:'🏏' },
+    crowbar:{ name: R.pinataWeapons?.crowbar||'Crowbar',emoji:'🔧' }
+  };
+}
+
+let pinataSelPlayers={};
+let activePinataId=null;
+
+window.openPinataSetup=function(){
+  if(!isHost())return;
+  pinataSelPlayers={};
+  const ap=activePlayers();
+  if(ap.length<2){showToast('Need 2+ active players');return;}
+  document.getElementById('pinataAnte').value='';
+  const w=getPinataWeapons();
+  document.getElementById('weapon1Label').textContent=w.bat.emoji+' '+w.bat.name;
+  document.getElementById('weapon2Label').textContent=w.crowbar.emoji+' '+w.crowbar.name;
+  document.getElementById('pinataPlayerSel').innerHTML=ap.map(p=>
+    `<button class="sel-chip" onclick="togglePinataPlayer('${p.id}',this)">${esc(p.name)}</button>`
+  ).join('');
+  document.getElementById('pinataSetupOverlay').style.display='flex';
+}
+window.togglePinataPlayer=function(id,el){
+  pinataSelPlayers[id]=!pinataSelPlayers[id];
+  el.classList.toggle('s-purple',!!pinataSelPlayers[id]);
+}
+
+window.launchPinata=function(){
+  const players=Object.keys(pinataSelPlayers).filter(k=>pinataSelPlayers[k]);
+  if(players.length<2){showToast('Select 2+ players');return;}
+  const ante=parseFloat(document.getElementById('pinataAnte').value);
+  if(!ante||ante<=0){showToast('Enter ante amount');return;}
+  const pot=Math.round(players.length*ante*100)/100;
+  const gid=uid();
+  // Store game in Firebase, broadcast reveal to all
+  dbSet(`pinataGames/${gid}`,{
+    id:gid, players, ante, pot, potRemaining:pot,
+    weapons:{}, bids:{}, order:[], currentIdx:0,
+    swings:{}, settled:false, bidsClosed:false, ts:Date.now()
+  });
+  dbSet('activePinata',{id:gid,ts:Date.now()});
+  activePinataId=gid;
+  closeModal('pinataSetupOverlay');
+  // Show reveal overlay for host
+  showPinataReveal(gid, true);
+}
+
+// ── REVEAL OVERLAY ────────────────────────────────────
+function showPinataReveal(gameId, isHostMode){
+  const overlay=document.getElementById('pinataRevealOverlay');
+  overlay.style.display='block';
+  spawnConfetti();
+  playPinataSound();
+  // Show correct card
+  document.getElementById('pinataBidCard').style.display= isHostMode?'none':'block';
+  document.getElementById('pinataBidTally').style.display= isHostMode?'block':'none';
+  document.getElementById('pinataBidConfirm').style.display='none';
+  if(!isHostMode) renderPlayerBidOptions(gameId);
+  if(isHostMode) renderBidTally(gameId);
+}
+
+window.closePinataReveal=function(){
+  document.getElementById('pinataRevealOverlay').style.display='none';
+  document.getElementById('pinataConfettiRain').innerHTML='';
+  stopPinataSound();
+}
+
+window.closePinataRevealAndSettle=function(){
+  // Lock bids — assign weapons based on highest bids
+  const g=R.pinataGames?.[activePinataId];if(!g)return;
+  const bids=Object.values(g.bids||{});
+  const w=getPinataWeapons();
+
+  // Find bat winner (highest bid for bat)
+  const batBids=bids.filter(b=>b.weapon==='bat').sort((a,b)=>b.amount-a.amount||a.ts-b.ts);
+  const crowbarBids=bids.filter(b=>b.weapon==='crowbar').sort((a,b)=>b.amount-a.amount||a.ts-b.ts);
+  const batWinner=batBids[0]||null;
+  const crowbarWinner=crowbarBids[0]||null;
+
+  const weapons={};
+  g.players.forEach(pid=>{
+    weapons[pid]= (crowbarWinner&&crowbarWinner.playerId===pid)?'crowbar'
+                :(batWinner&&batWinner.playerId===pid)?'bat'
+                :'stick';
+  });
+
+  // Add auction proceeds to pot
+  const auctionTotal=(batWinner?.amount||0)+(crowbarWinner?.amount||0);
+  const newPot=Math.round((g.pot+auctionTotal)*100)/100;
+
+  // Randomize swing order
+  const order=[...g.players].sort(()=>Math.random()-0.5);
+
+  db.ref(`rooms/${SESSION.roomCode}`).update({
+    [`pinataGames/${activePinataId}/weapons`]:weapons,
+    [`pinataGames/${activePinataId}/pot`]:newPot,
+    [`pinataGames/${activePinataId}/potRemaining`]:newPot,
+    [`pinataGames/${activePinataId}/order`]:order,
+    [`pinataGames/${activePinataId}/bidsClosed`]:true,
+    [`pinataGames/${activePinataId}/batWinner`]:batWinner?.playerId||null,
+    [`pinataGames/${activePinataId}/crowbarWinner`]:crowbarWinner?.playerId||null,
+  });
+  closePinataReveal();
+  showToast(`Bids locked! $${newPot} in the piñata 🪅`);
+  switchTab('games');
+}
+
+function renderPlayerBidOptions(gameId){
+  const g=R.pinataGames?.[gameId];if(!g)return;
+  const w=getPinataWeapons();
+  const myBid=(g.bids||{})[SESSION.playerId];
+  if(myBid){
+    document.getElementById('pinataBidCard').style.display='block';
+    document.getElementById('pinataBidOptions').style.display='none';
+    document.getElementById('pinataBidConfirm').style.display='block';
+    document.getElementById('pinataBidConfirm').textContent=`✓ Bid $${myBid.amount} for ${getPinataWeapons()[myBid.weapon]?.name||myBid.weapon}`;
+    return;
+  }
+  document.getElementById('pinataBidOptions').style.display='grid';
+  document.getElementById('pinataBidConfirm').style.display='none';
+  document.getElementById('pinataBidOptions').innerHTML=`
+    <div style="grid-column:1/-1;font-size:11px;color:rgba(255,255,255,0.5);margin-bottom:4px">Or stick with your stick (free)</div>
+    ${['bat','crowbar'].map(wk=>`
+      <div style="background:rgba(232,74,162,0.15);border:1px solid rgba(232,74,162,0.3);border-radius:10px;padding:12px;text-align:center">
+        <div style="font-size:28px;margin-bottom:4px">${w[wk].emoji}</div>
+        <div style="font-size:12px;font-weight:700;color:#ffcc00;margin-bottom:8px">${esc(w[wk].name)}</div>
+        <input id="bidAmt_${wk}" type="number" min="1" placeholder="$" style="width:100%;padding:6px;border-radius:6px;border:1px solid rgba(232,74,162,0.3);background:rgba(0,0,0,0.4);color:#fff;font-size:14px;text-align:center;font-family:DM Mono,monospace">
+        <button onclick="submitBid('${gameId}','${wk}')" style="width:100%;margin-top:8px;padding:8px;border-radius:8px;border:none;background:#e84aa2;color:#fff;font-size:12px;font-weight:700;cursor:pointer">Bid</button>
+      </div>`).join('')}
+  `;
+}
+
+window.submitBid=function(gameId,weapon){
+  const amt=parseFloat(document.getElementById(`bidAmt_${weapon}`).value);
+  if(!amt||amt<=0){showToast('Enter a bid amount');return;}
+  dbSet(`pinataGames/${gameId}/bids/${SESSION.playerId}`,{
+    playerId:SESSION.playerId, weapon, amount:amt, ts:Date.now()
+  });
+  document.getElementById('pinataBidOptions').style.display='none';
+  document.getElementById('pinataBidConfirm').style.display='block';
+  document.getElementById('pinataBidConfirm').textContent=`✓ Bid $${amt} for ${getPinataWeapons()[weapon]?.name||weapon}`;
+  showToast(`Bid placed! $${amt} for ${getPinataWeapons()[weapon]?.name} 🏏`);
+}
+
+function renderBidTally(gameId){
+  const g=R.pinataGames?.[gameId];if(!g)return;
+  const bids=Object.values(g.bids||{});
+  const w=getPinataWeapons();
+  const el=document.getElementById('pinataBidTallyRows');
+  if(!bids.length){el.innerHTML='<div style="font-size:12px;color:rgba(255,255,255,0.4);text-align:center">Waiting for bids…</div>';return;}
+  // Group by weapon
+  const grouped={bat:[],crowbar:[]};
+  bids.forEach(b=>{if(grouped[b.weapon])grouped[b.weapon].push(b);});
+  el.innerHTML=Object.entries(grouped).map(([wk,wbids])=>{
+    if(!wbids.length)return '';
+    wbids.sort((a,b)=>b.amount-a.amount||a.ts-b.ts);
+    return `<div style="margin-bottom:10px">
+      <div style="font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:2px;text-transform:uppercase;margin-bottom:4px">${w[wk]?.emoji} ${w[wk]?.name}</div>
+      ${wbids.map((b,i)=>`<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px">
+        <span style="color:${i===0?'#ffcc00':'rgba(255,255,255,0.5)'}">${esc(pname(b.playerId))}${i===0?' 🏆':''}</span>
+        <span style="font-family:DM Mono,monospace;color:${i===0?'#4caf82':'rgba(255,255,255,0.4)'}">$${b.amount}</span>
+      </div>`).join('')}
+    </div>`;
+  }).join('');
+}
+
+// ── SWING MANAGEMENT ──────────────────────────────────
+window.openPinataSwingModal=function(gameId){
+  const g=R.pinataGames?.[gameId];if(!g||g.settled)return;
+  activePinataId=gameId;
+  const pid=g.order[g.currentIdx];
+  const wk=g.weapons?.[pid]||'stick';
+  const w=getPinataWeapons()[wk]||{name:'Stick',emoji:'🪄'};
+  document.getElementById('pinataSwingTitle').textContent=`Swing ${(g.currentIdx||0)+1} of ${(g.order||[]).length}`;
+  document.getElementById('pinataSwingWeaponEmoji').textContent=w.emoji;
+  document.getElementById('pinataSwingName').textContent=pname(pid);
+  document.getElementById('pinataSwingWeapon').textContent=w.name;
+  document.getElementById('pinataFellOut').value='';
+  document.getElementById('pinataRemaining').textContent=`$${(g.potRemaining||0).toFixed(2)}`;
+  document.getElementById('pinataSwingOverlay').style.display='flex';
+}
+window.recordPinataSwing=function(){
+  const g=R.pinataGames?.[activePinataId];if(!g)return;
+  const fellOut=parseFloat(document.getElementById('pinataFellOut').value);
+  if(isNaN(fellOut)||fellOut<0){showToast('Enter amount that fell out');return;}
+  const pid=g.order[g.currentIdx];
+  const wk=g.weapons?.[pid]||'stick';
+  const newRemaining=Math.max(0,Math.round(((g.potRemaining||0)-fellOut)*100)/100);
+  const isLast=g.currentIdx>=(g.order||[]).length-1;
+  const update={};
+  update[`pinataGames/${activePinataId}/swings/swing_${g.currentIdx}`]={player:pid,weapon:wk,won:fellOut};
+  update[`pinataGames/${activePinataId}/potRemaining`]=newRemaining;
+  update[`pinataGames/${activePinataId}/currentIdx`]=(g.currentIdx||0)+1;
+  update[`pinataGames/${activePinataId}/settled`]=isLast;
+  db.ref(`rooms/${SESSION.roomCode}`).update(update);
+  closeModal('pinataSwingOverlay');
+  if(isLast) showToast(`Piñata done! House keeps $${newRemaining.toFixed(2)} 🏦`);
+  else showToast(`$${fellOut.toFixed(2)} fell out for ${pname(pid)}`);
+}
+window.deletePinataGame=function(id){dbSet(`pinataGames/${id}`,null);}
+
+// ── CONFETTI ──────────────────────────────────────────
+let pinataAudioCtx=null;
+let pinataConfettiInterval=null;
+function spawnConfetti(){
+  const rain=document.getElementById('pinataConfettiRain');
+  rain.innerHTML='';
+  const items=['🪅','💸','🎉','✨','💰','🎊','💵','⭐','🌟','🎈'];
+  const colors=['#e84aa2','#ffcc00','#4caf82','#6fa3d8','#ff6b00','#fff'];
+  for(let i=0;i<40;i++) createConfettiPiece(rain,items,colors,i*80);
+  pinataConfettiInterval=setInterval(()=>{
+    if(document.getElementById('pinataRevealOverlay').style.display==='none'){clearInterval(pinataConfettiInterval);return;}
+    createConfettiPiece(rain,items,colors,0);
+    const kids=[...rain.children];if(kids.length>80)kids.slice(0,10).forEach(k=>k.remove());
+  },250);
+}
+function createConfettiPiece(rain,items,colors,delay){
+  const el=document.createElement('div');
+  const useEmoji=Math.random()>0.4;
+  const x=Math.random()*100,size=useEmoji?20+Math.random()*28:8+Math.random()*12;
+  const dur=2+Math.random()*3;
+  const rotS=(Math.random()-0.5)*120,rotE=rotS+(Math.random()-0.5)*360;
+  if(useEmoji){
+    el.textContent=items[Math.floor(Math.random()*items.length)];
+    el.style.cssText=`position:absolute;left:${x}%;top:0;font-size:${size}px;animation:hdFall ${dur}s linear ${delay}ms forwards;--rs:${rotS}deg;--re:${rotE}deg;pointer-events:none;user-select:none`;
+  }else{
+    const color=colors[Math.floor(Math.random()*colors.length)];
+    el.style.cssText=`position:absolute;left:${x}%;top:0;width:${size}px;height:${size*0.4}px;background:${color};animation:hdFall ${dur}s linear ${delay}ms forwards;--rs:${rotS}deg;--re:${rotE}deg;pointer-events:none;border-radius:2px`;
+  }
+  rain.appendChild(el);
+  setTimeout(()=>{try{el.remove();}catch(e){}},delay+(dur*1000)+200);
+}
+function stopPinataSound(){try{if(pinataAudioCtx){pinataAudioCtx.close();pinataAudioCtx=null;}}catch(e){}}
+function playPinataSound(){
+  try{
+    pinataAudioCtx=new(window.AudioContext||window.webkitAudioContext)();
+    const ctx=pinataAudioCtx;
+    // Festive ascending fanfare
+    const melody=[523,659,784,659,784,1047,784,1047,1319,1047,1319,1568];
+    const times= [0,.1,.2,.35,.45,.55,.7,.8,.9,1.05,1.15,1.25];
+    melody.forEach((freq,i)=>{
+      const osc=ctx.createOscillator(),gain=ctx.createGain();
+      osc.connect(gain);gain.connect(ctx.destination);
+      osc.type='square';osc.frequency.value=freq;
+      gain.gain.setValueAtTime(0,ctx.currentTime+times[i]);
+      gain.gain.linearRampToValueAtTime(0.07,ctx.currentTime+times[i]+0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+times[i]+0.18);
+      osc.start(ctx.currentTime+times[i]);osc.stop(ctx.currentTime+times[i]+0.2);
+    });
+  }catch(e){}
+}
+
+function renderPinataGames(){
+  const el=document.getElementById('pinataGames');
+  if(!el)return;
+  const games=Object.values(R.pinataGames||{}).filter(g=>!isHost()?g.bidsClosed:true).sort((a,b)=>a.ts-b.ts);
+  if(!games.length){el.innerHTML='';return;}
+  const w=getPinataWeapons();
+  el.innerHTML=games.map(g=>{
+    const swings=Object.values(g.swings||{});
+    const totalWon=swings.reduce((s,sw)=>s+(sw.won||0),0);
+    const bids=Object.values(g.bids||{});
+    return `<div class="game-card-body" style="border-top:1px solid rgba(232,74,162,0.2)">
+      <div style="display:flex;justify-content:space-between;margin-bottom:10px">
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <span class="tag" style="background:rgba(232,74,162,0.12);color:#e84aa2;border:1px solid rgba(232,74,162,0.25)">$${(g.pot||0).toFixed(2)} pot</span>
+          ${g.settled?'<span class="tag tag-green">done</span>':g.bidsClosed?`<span class="tag tag-dim">${g.currentIdx||0}/${(g.order||[]).length} swings</span>`:'<span class="tag" style="color:#ffcc00;background:rgba(255,200,0,0.1);border:1px solid rgba(255,200,0,0.2)">bidding open</span>'}
+        </div>
+        ${isHost()?`<button class="btn btn-xs btn-outline" onclick="deletePinataGame('${g.id}')">✕</button>`:''}
+      </div>
+      ${g.bidsClosed&&isHost()?`<div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">
+        ${g.batWinner?`🏏 ${esc(pname(g.batWinner))} has the ${w.bat.name}`:''}
+        ${g.crowbarWinner?` · 🔧 ${esc(pname(g.crowbarWinner))} has the ${w.crowbar.name}`:''}
+      </div>`:''}
+      ${swings.map(sw=>{
+        const ww=w[sw.weapon]||w.stick;
+        return `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:12px">
+          <span>${ww.emoji} ${esc(pname(sw.player))}</span>
+          <span class="mono val-pos">+$${(sw.won||0).toFixed(2)}</span>
+        </div>`;
+      }).join('')}
+      ${g.settled?
+        `<div style="margin-top:8px;padding:10px;background:rgba(232,74,162,0.08);border-radius:8px;font-size:12px;text-align:center">
+          🏦 House kept <strong style="color:#e84aa2">$${(g.potRemaining||0).toFixed(2)}</strong> · Players won <strong style="color:var(--green)">$${totalWon.toFixed(2)}</strong>
+        </div>`
+        :isHost()&&g.bidsClosed&&(g.currentIdx||0)<(g.order||[]).length?
+        `<button class="btn btn-sm btn-full" style="margin-top:8px;background:rgba(232,74,162,0.15);border:1px solid rgba(232,74,162,0.3);color:#e84aa2" onclick="openPinataSwingModal('${g.id}')">
+          ${w[g.weapons?.[(g.order||[])[g.currentIdx||0]]||'stick']?.emoji||'🪄'} ${esc(pname((g.order||[])[g.currentIdx||0]))} swings next
+        </button>`
+        :''
+      }
+    </div>`;
+  }).join('');
+}
 let hdInterval=null,hdAudioCtx=null,hdDogCount=1;
 
 window.hdOverlayClick=function(e){
@@ -2863,11 +3653,11 @@ function playHotDogSound(){
   const rc = params.get('room');
   if(rc){ document.getElementById('joinRoomCode').value=rc.toUpperCase(); }
 
-  // Pre-fill name from previous visit
+  // Pre-fill username from previous visit
   const savedName = localStorage.getItem('ppppoker_name');
   if(savedName){
-    document.getElementById('joinName').value = savedName;
-    document.getElementById('hostName').value = savedName;
+    document.getElementById('joinUsername').value = savedName;
+    document.getElementById('hostUsername').value = savedName;
   }
 
   const raw = localStorage.getItem('ppppoker_session');
