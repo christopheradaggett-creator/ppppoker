@@ -713,6 +713,7 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
     <div class="modal-title" id="chipCheckTitle">Chip Check</div>
     <div style="font-size:13px;color:var(--text-dim);margin-bottom:16px" id="chipCheckSub">Enter current chip counts for a live snapshot.</div>
     <div id="chipCheckFields"></div>
+    <div id="chipCheckErr" style="display:none;background:rgba(192,57,43,0.1);border:1px solid rgba(192,57,43,0.3);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--red-light);margin-bottom:10px;line-height:1.5"></div>
     <div class="modal-actions" id="chipCheckActions">
       <button class="btn btn-outline" style="flex:1" onclick="closeModal('chipCheckOverlay');resetChipCheckModal()">Cancel</button>
       <button class="btn btn-gold" style="flex:2" onclick="saveChipCheck()">Update Board</button>
@@ -1663,6 +1664,50 @@ window.openChipCheck = function(){
   document.getElementById('chipCheckOverlay').style.display='flex';
 }
 window.saveChipCheck = function(){
+  const ap=activePlayers();
+  const buyIn=R.buyIn||25;
+  const upd={};
+  let enteredTotal=0;
+  let enteredCount=0;
+
+  ap.forEach(p=>{
+    const el=document.getElementById(`cc_${p.id}`);if(!el)return;
+    const val=parseFloat(el.value);
+    if(!isNaN(val)&&val>=0){
+      upd[`players/${p.id}/chipTotal`]=val;
+      enteredTotal+=val;
+      enteredCount++;
+    }
+  });
+
+  // Only validate if all active players have been entered
+  if(enteredCount===ap.length){
+    const totalBuyIns=Object.values(R.players||{}).reduce((s,p)=>s+(p.buyIns||0),0);
+    const expectedTotal=totalBuyIns*buyIn;
+    if(enteredTotal!==expectedTotal){
+      const diff=enteredTotal-expectedTotal;
+      const errEl=document.getElementById('chipCheckErr');
+      if(errEl){
+        errEl.textContent=`⚠ Total $${enteredTotal} doesn't match pool $${expectedTotal} (${diff>0?'+':''}$${diff}). Check your counts or save anyway.`;
+        errEl.style.display='block';
+      }
+      // Add save-anyway button
+      document.getElementById('chipCheckActions').innerHTML=`
+        <button class="btn btn-outline" style="flex:1" onclick="closeModal('chipCheckOverlay')">Cancel</button>
+        <button class="btn btn-danger" style="flex:1" onclick="forceChipCheck()">Save Anyway</button>
+        <button class="btn btn-gold" style="flex:1" onclick="saveChipCheck()">Re-check</button>`;
+      return;
+    }
+  }
+
+  db.ref(`rooms/${SESSION.roomCode}`).update(upd);
+  closeModal('chipCheckOverlay');
+  const errEl=document.getElementById('chipCheckErr');
+  if(errEl)errEl.style.display='none';
+  showToast('Chip check saved 📊');
+}
+
+window.forceChipCheck = function(){
   const ap=activePlayers();const upd={};
   ap.forEach(p=>{
     const el=document.getElementById(`cc_${p.id}`);if(!el)return;
@@ -1670,9 +1715,22 @@ window.saveChipCheck = function(){
     if(!isNaN(val)&&val>=0)upd[`players/${p.id}/chipTotal`]=val;
   });
   db.ref(`rooms/${SESSION.roomCode}`).update(upd);
-  closeModal('chipCheckOverlay');showToast('Chip check saved 📊');
+  closeModal('chipCheckOverlay');
+  const errEl=document.getElementById('chipCheckErr');
+  if(errEl)errEl.style.display='none';
+  // Reset actions back to normal
+  document.getElementById('chipCheckActions').innerHTML=`
+    <button class="btn btn-outline" style="flex:1" onclick="closeModal('chipCheckOverlay')">Cancel</button>
+    <button class="btn btn-gold" style="flex:2" onclick="saveChipCheck()">Update Board</button>`;
+  showToast('Chip check saved (override) 📊');
 }
-window.resetChipCheckModal=function(){}
+window.resetChipCheckModal=function(){
+  const errEl=document.getElementById('chipCheckErr');
+  if(errEl)errEl.style.display='none';
+  document.getElementById('chipCheckActions').innerHTML=`
+    <button class="btn btn-outline" style="flex:1" onclick="closeModal('chipCheckOverlay')">Cancel</button>
+    <button class="btn btn-gold" style="flex:2" onclick="saveChipCheck()">Update Board</button>`;
+}
 
 // ── CLOSE NIGHT ───────────────────────────────────────
 window.confirmCloseNight = function(){
