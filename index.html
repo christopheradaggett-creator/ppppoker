@@ -1,0 +1,2087 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>PPPPoker</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+:root{
+  --felt:#0d3b2e;--felt-light:#1a5c45;--felt-dark:#071a13;
+  --gold:#c9a84c;--gold-light:#e8c97a;--gold-dark:#8f6e28;
+  --red:#c0392b;--red-light:#e05444;--green:#4caf82;
+  --blue:#6fa3d8;--purple:#9b7fd4;--orange:#e8844a;
+  --text:#f0e6c8;--text-dim:#7a9a8a;--text-muted:#4a6a5a;
+  --surface:rgba(255,255,255,0.05);--surface2:rgba(255,255,255,0.08);
+  --border:rgba(201,168,76,0.18);--border-dim:rgba(255,255,255,0.07);--r:12px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden}
+body{font-family:'DM Sans',sans-serif;background:var(--felt-dark);color:var(--text);display:flex;flex-direction:column}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 100% 60% at 50% 0%,rgba(201,168,76,0.06) 0%,transparent 55%),repeating-linear-gradient(0deg,transparent,transparent 38px,rgba(255,255,255,0.013) 38px,rgba(255,255,255,0.013) 39px),repeating-linear-gradient(90deg,transparent,transparent 38px,rgba(255,255,255,0.013) 38px,rgba(255,255,255,0.013) 39px);pointer-events:none;z-index:0}
+
+/* ── JOIN SCREEN ── */
+#joinScreen{position:fixed;inset:0;z-index:500;background:var(--felt-dark);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px}
+.join-logo{font-family:'Playfair Display',serif;font-size:48px;font-weight:900;color:var(--gold-light);letter-spacing:-1px;text-align:center;margin-bottom:6px}
+.join-sub{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:var(--text-dim);text-transform:uppercase;text-align:center;margin-bottom:40px}
+.join-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;width:100%;max-width:360px}
+.join-label{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text-dim);margin-bottom:6px;display:block}
+.join-field{width:100%;padding:13px 16px;background:var(--surface2);border:1px solid var(--border-dim);border-radius:10px;font-family:'DM Sans',sans-serif;font-size:16px;color:var(--text);outline:none;transition:border-color .2s;margin-bottom:12px}
+.join-field:focus{border-color:var(--gold)}
+.join-field::placeholder{color:var(--text-muted)}
+.join-btn{width:100%;padding:14px;border-radius:10px;border:none;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:700;cursor:pointer;transition:all .15s;margin-bottom:10px}
+.join-btn-gold{background:var(--gold);color:var(--felt-dark)}
+.join-btn-gold:hover{background:var(--gold-light)}
+.join-btn-outline{background:transparent;border:1px solid var(--border);color:var(--text-dim)}
+.join-btn-outline:hover{border-color:var(--gold);color:var(--text)}
+.join-divider{display:flex;align-items:center;gap:10px;margin:14px 0;color:var(--text-muted);font-size:11px}
+.join-divider::before,.join-divider::after{content:'';flex:1;height:1px;background:var(--border-dim)}
+.join-err{font-size:12px;color:var(--red-light);text-align:center;margin-top:8px;min-height:18px}
+.join-spectate{font-size:12px;color:var(--text-dim);text-align:center;margin-top:16px;cursor:pointer}
+.join-spectate span{color:var(--gold);text-decoration:underline}
+
+/* ── App shell ── */
+.app{position:relative;z-index:1;display:flex;flex-direction:column;height:100%;max-width:500px;margin:0 auto;width:100%}
+header{padding:14px 18px 0;display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
+.logo-title{font-family:'Playfair Display',serif;font-size:22px;font-weight:900;color:var(--gold-light);letter-spacing:-0.5px;line-height:1}
+.logo-sub{font-family:'DM Mono',monospace;font-size:8px;letter-spacing:2px;color:var(--text-dim);text-transform:uppercase;margin-top:2px}
+.header-right{display:flex;align-items:center;gap:8px}
+.room-pill{font-family:'DM Mono',monospace;font-size:11px;color:var(--gold);background:rgba(201,168,76,0.1);border:1px solid var(--border);padding:4px 10px;border-radius:20px;cursor:pointer}
+.room-pill:hover{background:rgba(201,168,76,0.18)}
+.role-badge{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:1px;padding:3px 8px;border-radius:10px;text-transform:uppercase}
+.role-host{background:rgba(201,168,76,0.15);color:var(--gold);border:1px solid rgba(201,168,76,0.3)}
+.role-player{background:rgba(76,175,130,0.12);color:var(--green);border:1px solid rgba(76,175,130,0.25)}
+.role-spectator{background:var(--surface);color:var(--text-dim);border:1px solid var(--border-dim)}
+
+/* ── Nav ── */
+.nav{display:flex;padding:10px 18px 0;gap:6px;flex-shrink:0;overflow-x:auto;scrollbar-width:none}
+.nav::-webkit-scrollbar{display:none}
+.nav-tab{flex-shrink:0;padding:7px 12px;border-radius:20px;border:1px solid var(--border-dim);background:transparent;color:var(--text-dim);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .18s;position:relative}
+.nav-tab.active{background:var(--gold);color:var(--felt-dark);border-color:var(--gold)}
+.nav-tab:hover:not(.active){color:var(--text);border-color:var(--border)}
+.nav-badge{position:absolute;top:-4px;right:-4px;width:16px;height:16px;border-radius:50%;background:var(--red);color:#fff;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center}
+
+/* ── Scroll ── */
+.scroll{flex:1;overflow-y:auto;padding:14px 18px 100px;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+.scroll::-webkit-scrollbar{width:4px}
+.scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.section{display:none}.section.active{display:block}
+
+/* ── Cards ── */
+.card{background:var(--surface);border:1px solid var(--border-dim);border-radius:var(--r);overflow:hidden;margin-bottom:10px}
+.card-header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border-dim)}
+.card-body{padding:14px 16px}
+.card-footer{padding:10px 16px 14px;display:flex;gap:8px}
+.sec-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.sec-title{font-family:'Playfair Display',serif;font-size:17px;color:var(--gold-light)}
+.sec-action{font-size:12px;font-weight:600;color:var(--gold);cursor:pointer;padding:6px 12px;border:1px solid var(--border);border-radius:20px;background:transparent;font-family:'DM Sans',sans-serif}
+.sec-action:hover{background:rgba(201,168,76,0.1)}
+
+/* ── Inputs ── */
+.field{width:100%;padding:11px 14px;background:var(--surface2);border:1px solid var(--border-dim);border-radius:9px;font-family:'DM Sans',sans-serif;font-size:14px;color:var(--text);outline:none;transition:border-color .2s}
+.field::placeholder{color:var(--text-muted)}
+.field:focus{border-color:var(--gold)}
+.field-label{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text-dim);margin-bottom:6px;display:block}
+.form-row{margin-bottom:13px}
+.row{display:flex;gap:8px;align-items:center}
+
+/* ── Buttons ── */
+.btn{padding:11px 18px;border-radius:9px;border:none;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px;justify-content:center}
+.btn-gold{background:var(--gold);color:var(--felt-dark)}.btn-gold:hover{background:var(--gold-light)}
+.btn-outline{background:transparent;border:1px solid var(--border-dim);color:var(--text-dim)}.btn-outline:hover{border-color:var(--border);color:var(--text)}
+.btn-danger{background:rgba(192,57,43,0.15);border:1px solid rgba(192,57,43,0.3);color:var(--red-light)}.btn-danger:hover{background:rgba(192,57,43,0.25)}
+.btn-green{background:rgba(76,175,130,0.15);border:1px solid rgba(76,175,130,0.3);color:var(--green)}.btn-green:hover{background:rgba(76,175,130,0.25)}
+.btn-sm{padding:7px 12px;font-size:12px;border-radius:8px}
+.btn-xs{padding:5px 10px;font-size:11px;border-radius:6px}
+.btn-full{width:100%}
+
+/* ── Player chips ── */
+.player-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.player-chip{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border-dim);border-radius:12px;overflow:hidden;transition:all .15s;position:relative}
+.player-chip.active{border-color:var(--gold);background:rgba(201,168,76,0.08)}
+.player-chip.cashed-out{opacity:0.75;border-color:rgba(76,175,130,0.3)}
+.p-top{display:flex;align-items:center;gap:9px;padding:11px 12px 8px;cursor:pointer}
+.p-avatar{width:32px;height:32px;border-radius:50%;background:var(--felt-light);border:2px solid var(--border-dim);display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-size:13px;font-weight:700;color:var(--gold);flex-shrink:0;position:relative}
+.player-chip.active .p-avatar{border-color:var(--gold)}
+.p-name{font-size:13px;font-weight:600;color:var(--text);line-height:1.2}
+.p-sub{font-family:'DM Mono',monospace;font-size:10px;color:var(--text-dim);margin-top:1px}
+.p-sub.pos{color:var(--green)}.p-sub.neg{color:var(--red-light)}
+.p-remove{position:absolute;top:5px;right:7px;font-size:12px;color:var(--text-muted);cursor:pointer;opacity:0;transition:opacity .15s;background:none;border:none;line-height:1}
+.player-chip:hover .p-remove{opacity:1}
+.p-buyin-btn{width:100%;padding:8px 0;border:none;border-top:1px solid var(--border-dim);background:rgba(201,168,76,0.08);color:var(--gold);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:background .15s}
+.p-buyin-btn:hover{background:rgba(201,168,76,0.18)}
+
+/* ── Tags ── */
+.tag{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600}
+.tag-gold{background:rgba(201,168,76,0.12);color:var(--gold);border:1px solid rgba(201,168,76,0.25)}
+.tag-green{background:rgba(76,175,130,0.12);color:var(--green);border:1px solid rgba(76,175,130,0.25)}
+.tag-blue{background:rgba(111,163,216,0.12);color:var(--blue);border:1px solid rgba(111,163,216,0.2)}
+.tag-red{background:rgba(192,57,43,0.12);color:var(--red-light);border:1px solid rgba(192,57,43,0.25)}
+.tag-purple{background:rgba(155,127,212,0.12);color:var(--purple);border:1px solid rgba(155,127,212,0.25)}
+.tag-orange{background:rgba(232,132,74,0.12);color:var(--orange);border:1px solid rgba(232,132,74,0.25)}
+.tag-dim{background:var(--surface);color:var(--text-dim);border:1px solid var(--border-dim)}
+
+/* ── Mono ── */
+.mono{font-family:'DM Mono',monospace}
+.val-pos{color:var(--green)}.val-neg{color:var(--red-light)}.val-zero{color:var(--text-dim)}.val-gold{color:var(--gold)}
+.label{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text-dim)}
+.divider{height:1px;background:var(--border-dim);margin:14px 0}
+.empty{text-align:center;padding:36px 20px;color:var(--text-dim)}
+.empty-icon{font-size:32px;margin-bottom:8px}.empty-text{font-size:13px;line-height:1.5}
+
+/* ── Presets ── */
+.presets{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}
+.preset{padding:5px 11px;border-radius:20px;border:1px solid var(--border-dim);background:transparent;color:var(--text-dim);font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;transition:all .15s}
+.preset:hover{border-color:var(--gold);color:var(--gold)}
+
+/* ── Toggle ── */
+.toggle-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0}
+.toggle-label{font-size:13px;color:var(--text-dim)}
+.toggle{width:42px;height:24px;border-radius:12px;border:none;cursor:pointer;position:relative;transition:background .2s;background:var(--text-muted)}
+.toggle.on{background:var(--gold)}
+.toggle::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .2s}
+.toggle.on::after{transform:translateX(18px)}
+
+/* ── Stat cards ── */
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.stat-card{background:var(--surface);border:1px solid var(--border-dim);border-radius:var(--r);padding:12px 14px}
+.stat-val{font-family:'DM Mono',monospace;font-size:20px;color:var(--gold);margin-bottom:2px}
+.stat-lbl{font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px}
+.buyin-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(201,168,76,0.1);border:1px solid var(--border);border-radius:20px;padding:4px 10px;font-family:'DM Mono',monospace;font-size:11px;color:var(--gold);cursor:pointer}
+
+/* ── Game cards ── */
+.game-card{border-radius:var(--r);border:1px solid var(--border-dim);overflow:hidden;margin-bottom:10px}
+.game-card-header{padding:14px 16px;display:flex;justify-content:space-between;align-items:center}
+.game-card-body{padding:14px 16px;border-top:1px solid var(--border-dim)}
+.nit-card{background:rgba(155,127,212,0.06);border-color:rgba(155,127,212,0.2)}
+.nit-header{background:rgba(155,127,212,0.08)}
+.low-card{background:rgba(232,132,74,0.06);border-color:rgba(232,132,74,0.2)}
+.low-header{background:rgba(232,132,74,0.08)}
+.n64-card{background:rgba(111,163,216,0.06);border-color:rgba(111,163,216,0.2)}
+.n64-header{background:rgba(111,163,216,0.08)}
+.race-card{background:rgba(76,175,130,0.06);border-color:rgba(76,175,130,0.2)}
+.race-header{background:rgba(76,175,130,0.08)}
+.nit-players{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.nit-player{display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:8px;border:1px solid var(--border-dim);background:var(--surface);font-size:13px}
+.nit-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.nit-dot.has{background:var(--red-light);box-shadow:0 0 6px rgba(224,84,68,0.5)}
+.nit-dot.clear{background:var(--green)}
+
+/* ── Selector chips ── */
+.sel-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
+.sel-chip{padding:8px;text-align:center;border-radius:8px;border:1px solid var(--border-dim);background:transparent;color:var(--text-dim);font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;font-family:'DM Sans',sans-serif}
+.sel-chip:hover{border-color:var(--text-dim);color:var(--text)}
+.sel-chip.s-gold{background:rgba(201,168,76,0.15);border-color:var(--gold);color:var(--gold)}
+.sel-chip.s-green{background:rgba(76,175,130,0.15);border-color:var(--green);color:var(--green)}
+.sel-chip.s-blue{background:rgba(111,163,216,0.15);border-color:var(--blue);color:var(--blue)}
+.sel-chip.s-purple{background:rgba(155,127,212,0.15);border-color:var(--purple);color:var(--purple)}
+.sel-chip.s-orange{background:rgba(232,132,74,0.15);border-color:var(--orange);color:var(--orange)}
+
+/* ── Settle ── */
+.settle-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border-dim)}
+.settle-row:last-child{border-bottom:none}
+.settle-name{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600}
+.settle-avatar{width:28px;height:28px;border-radius:50%;background:var(--felt-light);border:1px solid var(--border-dim);display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-size:12px;color:var(--gold)}
+.settle-val{font-family:'DM Mono',monospace;font-size:15px;font-weight:500}
+.transfer-row{display:flex;justify-content:space-between;align-items:center;background:var(--surface);border:1px solid var(--border-dim);border-radius:9px;padding:10px 14px;margin-bottom:7px}
+
+/* ── Leaderboard ── */
+.lb-row{display:flex;align-items:center;gap:12px;padding:13px 16px;background:var(--surface);border:1px solid var(--border-dim);border-radius:12px;margin-bottom:8px;transition:border-color .15s}
+.lb-row.lb-first{background:rgba(201,168,76,0.08);border-color:rgba(201,168,76,0.3)}
+.lb-row.lb-second{background:rgba(180,180,180,0.05);border-color:rgba(180,180,180,0.2)}
+.lb-row.lb-third{background:rgba(180,100,40,0.06);border-color:rgba(180,100,40,0.2)}
+.lb-rank{font-family:'Playfair Display',serif;font-size:20px;font-weight:900;width:32px;text-align:center;flex-shrink:0;color:var(--text-muted)}
+.lb-first .lb-rank{color:var(--gold)}.lb-second .lb-rank{color:#b0b0b0}.lb-third .lb-rank{color:#b46428}
+.lb-avatar{width:38px;height:38px;border-radius:50%;background:var(--felt-light);border:2px solid var(--border-dim);display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-size:16px;font-weight:700;color:var(--gold);flex-shrink:0;position:relative}
+.lb-first .lb-avatar{border-color:var(--gold)}
+.lb-info{flex:1;min-width:0}
+.lb-name{font-size:15px;font-weight:700;color:var(--text)}
+.lb-detail{font-size:11px;color:var(--text-dim);margin-top:2px}
+.lb-amount{font-family:'DM Mono',monospace;font-size:18px;font-weight:500;flex-shrink:0}
+.lb-bar-wrap{height:3px;background:var(--border-dim);border-radius:2px;margin-top:6px;overflow:hidden}
+.lb-bar{height:100%;border-radius:2px;transition:width .4s ease}
+
+/* ── QR ── */
+.qr-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px;text-align:center;margin-bottom:12px}
+.qr-inner{background:#fff;border-radius:8px;padding:10px;display:inline-block;margin-bottom:10px}
+.qr-code-text{font-family:'DM Mono',monospace;font-size:22px;font-weight:500;letter-spacing:6px;color:var(--gold);margin-bottom:4px}
+.qr-hint{font-size:11px;color:var(--text-dim)}
+
+/* ── Hist ── */
+.hist-card{background:var(--surface);border:1px solid var(--border-dim);border-radius:var(--r);padding:14px 16px;margin-bottom:9px;cursor:pointer;transition:border-color .15s}
+.hist-card:hover{border-color:var(--gold-dark)}
+
+/* ── Modal ── */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(4px);z-index:100;display:flex;align-items:flex-end;justify-content:center;padding:0}
+.modal{background:var(--felt);border:1px solid var(--border);border-radius:20px 20px 0 0;width:100%;max-width:500px;padding:24px;max-height:90vh;overflow-y:auto}
+.modal-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 20px}
+.modal-title{font-family:'Playfair Display',serif;font-size:20px;color:var(--gold-light);margin-bottom:18px}
+.modal-actions{display:flex;gap:8px;margin-top:18px}
+
+/* ── FAB ── */
+.fab{position:fixed;bottom:24px;right:50%;transform:translateX(50%);background:var(--gold);color:var(--felt-dark);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;padding:13px 28px;border-radius:30px;border:none;cursor:pointer;transition:all .2s;box-shadow:0 4px 24px rgba(201,168,76,0.4);z-index:50;max-width:calc(500px - 36px);width:calc(100% - 36px);text-align:center}
+.fab:hover{background:var(--gold-light);transform:translateX(50%) translateY(-2px)}
+
+/* ── Toast ── */
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(10px);background:var(--gold);color:var(--felt-dark);padding:9px 18px;border-radius:20px;font-size:12px;font-weight:600;opacity:0;transition:all .25s;z-index:200;pointer-events:none;white-space:nowrap}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ── Connecting ── */
+#connectingBanner{display:none;position:fixed;top:0;left:0;right:0;z-index:300;background:rgba(192,57,43,0.9);color:#fff;text-align:center;padding:8px;font-size:12px;font-family:'DM Mono',monospace;letter-spacing:1px}
+
+/* ── Hot Dog ── */
+#hotdogOverlay{display:none;position:fixed;inset:0;z-index:999;background:#1a0800;overflow:hidden;cursor:pointer}
+@keyframes hdBounce{from{transform:translateY(0) rotate(-10deg)}to{transform:translateY(-20px) rotate(10deg)}}
+@keyframes hdPulse{from{transform:scale(1)}to{transform:scale(1.08)}}
+@keyframes hdFade{from{opacity:0.3}to{opacity:0.9}}
+@keyframes hdFall{from{transform:translateY(-120px) rotate(var(--rs))}to{transform:translateY(110vh) rotate(var(--re))}}
+@keyframes hdSiren{0%,100%{opacity:0.18}50%{opacity:0.38}}
+
+/* ── Drinks ── */
+.drink-preset{padding:9px 8px;border-radius:9px;border:1px solid rgba(111,163,216,0.25);background:rgba(111,163,216,0.07);color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;text-align:center}
+.drink-preset:hover{background:rgba(111,163,216,0.15);border-color:rgba(111,163,216,0.4)}
+.drink-order-card{background:var(--surface);border:1px solid var(--border-dim);border-radius:10px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.drink-order-card.filled{opacity:0.5}
+.drink-order-name{font-size:13px;font-weight:600;color:var(--text)}
+.drink-order-item{font-size:13px;color:var(--blue)}
+.drink-order-note{font-size:11px;color:var(--text-dim);margin-top:2px}
+.drink-order-ts{font-family:'DM Mono',monospace;font-size:10px;color:var(--text-muted)}
+
+@media(max-width:360px){.sel-grid{grid-template-columns:repeat(2,1fr)}.player-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div id="connectingBanner">⚡ Reconnecting…</div>
+
+<!-- JOIN SCREEN -->
+<div id="joinScreen">
+  <div class="join-logo">PPPPoker</div>
+  <div class="join-sub">Poker Game Side Action</div>
+  <div class="join-card">
+    <div id="joinStep1">
+      <label class="join-label">Room Code</label>
+      <input class="join-field" id="joinRoomCode" placeholder="e.g. FELT" maxlength="8" style="text-transform:uppercase;letter-spacing:4px;font-size:20px;text-align:center">
+      <button class="join-btn join-btn-gold" onclick="joinWithCode()">Enter Room</button>
+      <div class="join-divider">or</div>
+      <button class="join-btn join-btn-outline" onclick="showCreateRoom()">Create New Game (Host)</button>
+      <div class="join-err" id="joinErr"></div>
+    </div>
+    <div id="joinStep2" style="display:none">
+      <label class="join-label">Your Name</label>
+      <input class="join-field" id="joinName" placeholder="First name" maxlength="18">
+      <button class="join-btn join-btn-gold" onclick="joinAsPlayer()">Join Game</button>
+      <button class="join-btn join-btn-outline" style="margin-top:0" onclick="backToStep1()">← Back</button>
+      <div class="join-err" id="joinErr2"></div>
+    </div>
+    <div id="joinCreateRoom" style="display:none">
+      <label class="join-label">Your Name (Host)</label>
+      <input class="join-field" id="hostName" placeholder="First name" maxlength="18" value="Chris">
+      <label class="join-label">Room Code</label>
+      <input class="join-field" id="hostRoomCode" placeholder="e.g. FELT" maxlength="8" style="text-transform:uppercase;letter-spacing:4px;font-size:20px;text-align:center">
+      <label class="join-label">Buy-in Amount ($)</label>
+      <input class="join-field" id="hostBuyIn" type="number" value="25" min="1">
+      <button class="join-btn join-btn-gold" onclick="createRoom()">Create Room</button>
+      <button class="join-btn join-btn-outline" style="margin-top:0" onclick="backToStep1()">← Back</button>
+      <div class="join-err" id="joinErr3"></div>
+    </div>
+  </div>
+  <div class="join-spectate" onclick="spectateMode()">Just watching? <span>View leaderboard only</span></div>
+</div>
+
+<!-- MAIN APP -->
+<div class="app" id="mainApp" style="display:none">
+  <header>
+    <div>
+      <div class="logo-title">PPPPoker</div>
+      <div class="logo-sub" id="headerSub"></div>
+    </div>
+    <div class="header-right">
+      <span class="role-badge" id="roleBadge"></span>
+      <div class="room-pill" id="roomPill" onclick="showRoomInfo()"></div>
+    </div>
+  </header>
+
+  <nav class="nav" id="mainNav">
+    <button class="nav-tab active" onclick="switchTab('board')" id="t-board">Leaderboard</button>
+    <button class="nav-tab" onclick="switchTab('players')" id="t-players">Players</button>
+    <button class="nav-tab" onclick="switchTab('bets')" id="t-bets">Side Bets</button>
+    <button class="nav-tab" onclick="switchTab('games')" id="t-games">Games</button>
+    <button class="nav-tab" onclick="switchTab('drinks')" id="t-drinks">🍹 Drinks</button>
+    <button class="nav-tab" onclick="switchTab('settle')" id="t-settle">Settle Up</button>
+    <button class="nav-tab host-only" onclick="switchTab('history')" id="t-history">History</button>
+  </nav>
+
+  <div class="scroll">
+
+    <!-- LEADERBOARD -->
+    <div class="section active" id="sec-board">
+      <div class="sec-header" style="margin-top:4px">
+        <div class="sec-title">Leaderboard</div>
+        <div style="display:flex;gap:6px">
+          <button class="sec-action host-only" onclick="openChipCheck()">Chip Check</button>
+        </div>
+      </div>
+
+      <!-- Persistent join strip — host only -->
+      <div id="joinStrip" class="host-only" style="background:rgba(201,168,76,0.06);border:1px solid rgba(201,168,76,0.18);border-radius:12px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;gap:14px">
+        <div id="lbQrCode" style="background:#fff;border-radius:6px;padding:6px;flex-shrink:0"></div>
+        <div style="flex:1;min-width:0">
+          <div style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:2px;color:var(--text-dim);text-transform:uppercase;margin-bottom:4px">Join Code</div>
+          <div style="font-family:'DM Mono',monospace;font-size:24px;font-weight:500;letter-spacing:5px;color:var(--gold)" id="lbRoomCode"></div>
+          <div style="font-size:10px;color:var(--text-muted);margin-top:2px" id="lbRoomUrl" style="word-break:break-all"></div>
+          <div style="display:flex;gap:6px;margin-top:8px">
+            <button onclick="shareRoomLink()" style="flex:1;padding:7px;border-radius:8px;border:1px solid rgba(201,168,76,0.3);background:rgba(201,168,76,0.1);color:var(--gold);font-family:'DM Sans',sans-serif;font-size:11px;font-weight:700;cursor:pointer">📤 Share Link</button>
+            <button onclick="shareRoomSMS()" style="flex:1;padding:7px;border-radius:8px;border:1px solid rgba(76,175,130,0.3);background:rgba(76,175,130,0.1);color:var(--green);font-family:'DM Sans',sans-serif;font-size:11px;font-weight:700;cursor:pointer">💬 Text Group</button>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+        <div style="background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.2);border-radius:10px;padding:11px 13px">
+          <div class="label" style="margin-bottom:4px">Poker Pool</div>
+          <div class="mono" style="font-size:18px;color:var(--gold)" id="boardPokerPool">$0</div>
+          <div style="font-size:10px;color:var(--text-muted)" id="boardBuyInCount">0 buy-ins</div>
+        </div>
+        <div style="background:rgba(76,175,130,0.07);border:1px solid rgba(76,175,130,0.2);border-radius:10px;padding:11px 13px">
+          <div class="label" style="margin-bottom:4px">Side Action</div>
+          <div class="mono" style="font-size:18px;color:var(--green)" id="boardSideTotal">$0</div>
+          <div style="font-size:10px;color:var(--text-muted)">settled bets &amp; games</div>
+        </div>
+      </div>
+      <div id="leaderboardRows"></div>
+      <div id="leaderboardEmpty" class="empty" style="display:none">
+        <div class="empty-icon">🏆</div>
+        <div class="empty-text">No action yet. Get some bets going!</div>
+      </div>
+      <!-- Hot Dog O'Clock trigger (host only) -->
+      <div id="hotdogBtn" style="display:none;margin-top:20px;text-align:center">
+        <button onclick="triggerHotDogOClock()" style="background:none;border:none;cursor:pointer;font-size:42px;filter:drop-shadow(0 0 8px rgba(255,180,0,0.5));transition:transform .15s" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'">🌭</button>
+        <div class="label" style="margin-top:4px">Hot Dog O'Clock</div>
+      </div>
+      <!-- Reopen banner — visible to everyone when a hot dog round is active -->
+      <div id="hdReopenBanner" style="display:none;margin-top:16px;cursor:pointer;background:rgba(255,107,0,0.12);border:1px solid rgba(255,107,0,0.35);border-radius:12px;padding:12px 16px;display:none;align-items:center;justify-content:space-between" onclick="reopenHotDogOverlay()">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:22px">🌭</span>
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#ffcc00">Hot Dog O'Clock is active</div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.5)" id="hdReopenSub">Tap to view orders</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:18px;color:rgba(255,140,0,0.7)">›</span>
+          <button onclick="event.stopPropagation();hideHdBanner();if(isHost())dbSet('hotdogActive',null);" style="background:none;border:none;color:rgba(255,255,255,0.3);font-size:16px;cursor:pointer;padding:4px" title="Dismiss">✕</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PLAYERS -->
+    <div class="section" id="sec-players">
+      <div class="sec-header" style="margin-top:4px">
+        <div class="sec-title">Tonight's Table</div>
+        <div class="buyin-badge host-only" onclick="openBuyInSettings()">$<span id="buyInAmt"></span> buy-in</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+        <div style="background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.2);border-radius:10px;padding:11px 13px">
+          <div class="label" style="margin-bottom:4px">Poker Pool</div>
+          <div class="mono" style="font-size:18px;color:var(--gold)" id="totalPokerPool">$0</div>
+          <div style="font-size:10px;color:var(--text-muted)" id="totalBuyInCount">0 buy-ins</div>
+        </div>
+        <div style="background:rgba(76,175,130,0.07);border:1px solid rgba(76,175,130,0.2);border-radius:10px;padding:11px 13px">
+          <div class="label" style="margin-bottom:4px">Side Action</div>
+          <div class="mono" style="font-size:18px;color:var(--green)" id="totalSideAction">$0</div>
+          <div style="font-size:10px;color:var(--text-muted)">settled bets &amp; games</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <button class="btn btn-outline btn-sm host-only" style="flex:1;border-color:rgba(201,168,76,0.3);color:var(--gold)" onclick="dealEveryoneIn()">Deal Everyone In</button>
+        <button class="btn btn-outline btn-sm host-only" style="flex:1;border-color:rgba(76,175,130,0.3);color:var(--green)" onclick="tipDealer()">Tip the Dealer</button>
+      </div>
+      <div class="player-grid" id="playerGrid"></div>
+      <div class="row host-only" style="margin-bottom:8px">
+        <input class="field" id="newPlayerInput" placeholder="Add player manually…" maxlength="18" onkeydown="if(event.key==='Enter')addPlayerManual()">
+        <button class="btn btn-gold" onclick="addPlayerManual()">Add</button>
+      </div>
+      <p style="font-size:11px;color:var(--text-muted);margin-top:4px;">Tap card to toggle active. Buy In records a buy-in or rebuy.</p>
+      <div style="margin-top:14px" class="host-only">
+        <button class="btn btn-danger btn-full" onclick="confirmCloseNight()" style="padding:13px">🏁 Close Game & Cash Out All</button>
+      </div>
+    </div>
+
+    <!-- SIDE BETS -->
+    <div class="section" id="sec-bets">
+      <div class="sec-header" style="margin-top:4px"><div class="sec-title">Side Bets</div></div>
+      <div id="betsList"></div>
+      <div id="betsEmpty" class="empty" style="display:none">
+        <div class="empty-icon">🤝</div>
+        <div class="empty-text">No bets yet. Hit the button below.</div>
+      </div>
+    </div>
+
+    <!-- GAMES -->
+    <div class="section" id="sec-games">
+      <div class="sec-header" style="margin-top:4px"><div class="sec-title">Side Games</div></div>
+      <div class="label" style="margin-bottom:6px">On-Table (affects chips)</div>
+      <div class="game-card nit-card">
+        <div class="game-card-header nit-header">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:18px">🎯</span>
+            <div><div style="font-weight:700;font-size:14px">Nit Game</div><div style="font-size:11px;color:var(--text-dim)">Last player with a nit pays everyone</div></div>
+          </div>
+          <button class="btn btn-xs btn-gold" onclick="openNitModal()">Start</button>
+        </div>
+        <div id="nitGames"></div>
+      </div>
+      <div class="game-card low-card">
+        <div class="game-card-header low-header">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:18px">🃏</span>
+            <div><div style="font-weight:700;font-size:14px">2/7</div><div style="font-size:11px;color:var(--text-dim)">Win a hand with 2/7 to collect from all</div></div>
+          </div>
+          <button class="btn btn-xs btn-gold" onclick="openLowModal()">Declare</button>
+        </div>
+        <div id="lowGames"></div>
+      </div>
+      <div class="divider"></div>
+      <div class="label" style="margin-bottom:8px">Off-Table</div>
+      <div class="game-card n64-card">
+        <div class="game-card-header n64-header">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:18px">🎮</span>
+            <div><div style="font-weight:700;font-size:14px">N64</div><div style="font-size:11px;color:var(--text-dim)">Mario Kart · Smash Bros · GoldenEye</div></div>
+          </div>
+          <button class="btn btn-xs btn-gold" onclick="openN64Modal()">New Match</button>
+        </div>
+        <div id="n64Games"></div>
+      </div>
+      <div class="game-card race-card">
+        <div class="game-card-header race-header">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:18px">🏃</span>
+            <div><div style="font-weight:700;font-size:14px">40-Yard Dash</div><div style="font-size:11px;color:var(--text-dim)">Head-to-head, configurable odds</div></div>
+          </div>
+          <button class="btn btn-xs btn-gold" onclick="openRaceModal()">New Race</button>
+        </div>
+        <div id="raceGames"></div>
+      </div>
+    </div>
+
+    <!-- SETTLE UP -->
+    <div class="section" id="sec-settle">
+      <div class="sec-header" style="margin-top:4px"><div class="sec-title">Settle Up</div></div>
+      <div class="stat-grid" id="settleStats"></div>
+      <div class="card" id="settleBalances"></div>
+      <div style="margin-top:14px">
+        <div class="label" style="margin-bottom:8px">Minimum Transfers</div>
+        <div id="settleTransfers"></div>
+      </div>
+    </div>
+
+    <!-- DRINKS -->
+    <div class="section" id="sec-drinks">
+      <div class="sec-header" style="margin-top:4px">
+        <div class="sec-title">Drink Orders</div>
+        <button class="sec-action host-only" onclick="clearAllDrinks()">Clear All</button>
+      </div>
+
+      <!-- Player order card -->
+      <div id="myOrderCard" style="margin-bottom:16px">
+        <div style="background:rgba(111,163,216,0.07);border:1px solid rgba(111,163,216,0.2);border-radius:12px;padding:14px 16px">
+          <div class="label" style="margin-bottom:10px">Your Order</div>
+          <div id="myCurrentOrder" style="font-size:13px;color:var(--text-dim);margin-bottom:12px">No current order</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+            <button class="drink-preset" onclick="orderDrink('Old Fashioned')">🥃 Old Fashioned</button>
+            <button class="drink-preset" onclick="orderDrink('Manhattan')">🍸 Manhattan</button>
+            <button class="drink-preset" onclick="orderDrink('Gin & Tonic')">🫧 Gin & Tonic</button>
+            <button class="drink-preset" onclick="orderDrink('Southside Sour')">🍋 Southside Sour</button>
+          </div>
+          <div class="row">
+            <input class="field" id="drinkCustomInput" placeholder="Custom order or notes…" maxlength="60" onkeydown="if(event.key==='Enter')orderCustomDrink()">
+            <button class="btn btn-gold btn-sm" onclick="orderCustomDrink()">Order</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Queue (visible to all, manageable by host) -->
+      <div class="label" style="margin-bottom:10px">Current Orders</div>
+      <div id="drinksQueue"></div>
+      <div id="drinksEmpty" class="empty" style="display:none">
+        <div class="empty-icon">🍹</div>
+        <div class="empty-text">No orders yet.<br>Beer is self-serve.</div>
+      </div>
+    </div>
+
+    <!-- HISTORY (host only) -->
+    <div class="section" id="sec-history">
+      <div class="sec-header" style="margin-top:4px"><div class="sec-title">History</div></div>
+      <div id="historyList"></div>
+      <div id="historyEmpty" class="empty" style="display:none">
+        <div class="empty-icon">📖</div><div class="empty-text">No archived nights yet.</div>
+      </div>
+    </div>
+
+  </div><!-- /scroll -->
+</div><!-- /app -->
+
+<!-- FAB -->
+<button class="fab" id="fab" onclick="fabAction()" style="display:none"></button>
+<div class="toast" id="toast"></div>
+
+<!-- HOT DOG O'CLOCK -->
+<div id="hotdogOverlay" onclick="hdOverlayClick(event)">
+  <div id="sirenBar" style="position:absolute;inset:0;pointer-events:none"></div>
+  <div id="hotdogRain" style="position:absolute;inset:0;pointer-events:none"></div>
+  <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none">
+    <div style="font-size:100px;animation:hdBounce 0.5s ease-in-out infinite alternate;filter:drop-shadow(0 0 30px rgba(255,140,0,0.9))">🌭</div>
+    <div style="font-family:'Playfair Display',serif;font-size:36px;font-weight:900;color:#ff6b00;text-shadow:0 0 40px rgba(255,107,0,0.8);margin-top:16px;animation:hdPulse 0.8s ease-in-out infinite alternate">HOT DOG</div>
+    <div style="font-family:'Playfair Display',serif;font-size:36px;font-weight:900;color:#ffcc00;text-shadow:0 0 40px rgba(255,200,0,0.8);animation:hdPulse 0.8s ease-in-out infinite alternate 0.4s">O'CLOCK</div>
+
+    <!-- Player order prompt -->
+    <div id="hdOrderPrompt" style="display:none;margin-top:28px;background:rgba(0,0,0,0.6);border:1px solid rgba(255,140,0,0.4);border-radius:16px;padding:18px 24px;text-align:center;pointer-events:all;min-width:260px">
+      <div style="font-family:'DM Sans',sans-serif;font-size:15px;font-weight:700;color:#ffcc00;margin-bottom:12px">How many dogs?</div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:14px">
+        <button onclick="hdAdjust(-1)" style="width:38px;height:38px;border-radius:50%;border:2px solid rgba(255,140,0,0.5);background:rgba(255,107,0,0.2);color:#ffcc00;font-size:22px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">−</button>
+        <div id="hdDogCount" style="font-family:'Playfair Display',serif;font-size:42px;font-weight:900;color:#fff;min-width:40px;text-align:center">1</div>
+        <button onclick="hdAdjust(1)" style="width:38px;height:38px;border-radius:50%;border:2px solid rgba(255,140,0,0.5);background:rgba(255,107,0,0.2);color:#ffcc00;font-size:22px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">+</button>
+      </div>
+      <button id="hdSubmitBtn" onclick="submitHdOrder()" style="background:#ff6b00;color:#fff;border:none;border-radius:10px;padding:11px 28px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;width:100%">Order 'em up 🌭</button>
+      <div id="hdOrderConfirm" style="display:none;color:#4caf82;font-size:13px;font-weight:600;margin-top:8px">✓ Order placed!</div>
+    </div>
+
+    <!-- Host tally -->
+    <div id="hdHostTally" style="display:none;margin-top:28px;background:rgba(0,0,0,0.6);border:1px solid rgba(255,140,0,0.4);border-radius:16px;padding:18px 24px;pointer-events:all;min-width:260px">
+      <div style="font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;color:#ffcc00;margin-bottom:10px;text-align:center">🌭 Dog Orders</div>
+      <div id="hdTallyRows" style="margin-bottom:10px"></div>
+      <div style="border-top:1px solid rgba(255,140,0,0.3);padding-top:10px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-family:'DM Sans',sans-serif;font-size:13px;color:rgba(255,255,255,0.7)">Total</span>
+        <span id="hdTallyTotal" style="font-family:'Playfair Display',serif;font-size:22px;font-weight:900;color:#ffcc00">0 🌭</span>
+      </div>
+    </div>
+
+    <div class="label" style="margin-top:16px;animation:hdFade 1s ease-in-out infinite alternate">tap outside to resume</div>
+  </div>
+</div>
+
+<!-- MODALS -->
+<!-- Room info / QR -->
+<div class="overlay" id="roomInfoOverlay" style="display:none" onclick="if(event.target===this)closeModal('roomInfoOverlay')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Join This Room</div>
+    <div class="qr-box">
+      <div class="qr-inner" id="qrCodeDiv"></div>
+      <div class="qr-code-text" id="qrRoomCode"></div>
+      <div class="qr-hint">Scan to open · enter code to join</div>
+    </div>
+    <div style="font-size:12px;color:var(--text-dim);text-align:center;line-height:1.6" id="roomInfoLink"></div>
+    <div class="modal-actions"><button class="btn btn-gold btn-full" onclick="closeModal('roomInfoOverlay')">Done</button></div>
+  </div>
+</div>
+
+<!-- Night Name -->
+<div class="overlay" id="nightOverlay" style="display:none" onclick="if(event.target===this)closeModal('nightOverlay')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Game Name</div>
+    <div class="form-row"><input class="field" id="nightNameInput" placeholder="e.g. May 16 – Chris's place"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" style="flex:1" onclick="closeModal('nightOverlay')">Cancel</button>
+      <button class="btn btn-gold" style="flex:1" onclick="saveNightName()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Buy-in settings -->
+<div class="overlay" id="buyInOverlay" style="display:none" onclick="if(event.target===this)closeModal('buyInOverlay')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Buy-In Amount</div>
+    <div class="form-row">
+      <label class="field-label">Amount per buy-in / rebuy ($)</label>
+      <input class="field" id="buyInField" type="number" min="1">
+      <div class="presets">
+        <button class="preset" onclick="document.getElementById('buyInField').value=25">$25</button>
+        <button class="preset" onclick="document.getElementById('buyInField').value=50">$50</button>
+        <button class="preset" onclick="document.getElementById('buyInField').value=100">$100</button>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" style="flex:1" onclick="closeModal('buyInOverlay')">Cancel</button>
+      <button class="btn btn-gold" style="flex:1" onclick="saveBuyIn()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Player buy-in -->
+<div class="overlay" id="playerBuyInOverlay" style="display:none" onclick="if(event.target===this)closeModal('playerBuyInOverlay')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="playerBuyInTitle">Buy In</div>
+    <div style="font-size:13px;color:var(--text-dim);margin-bottom:14px" id="playerBuyInSub"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" style="flex:1" onclick="closeModal('playerBuyInOverlay')">Cancel</button>
+      <button class="btn btn-gold" style="flex:2" onclick="recordBuyIn()">+ Buy In ($<span id="playerBuyInAmt"></span>)</button>
+    </div>
+  </div>
+</div>
+
+<!-- Cash Out -->
+<div class="overlay" id="cashOutOverlay" style="display:none" onclick="if(event.target===this)closeModal('cashOutOverlay')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="cashOutTitle">Cash Out</div>
+    <div style="font-size:13px;color:var(--text-dim);margin-bottom:14px" id="cashOutSub"></div>
+    <div class="form-row">
+      <label class="field-label">Final chip total ($)</label>
+      <input class="field" id="cashOutField" type="number" min="0" placeholder="e.g. 85">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" style="flex:1" onclick="closeModal('cashOutOverlay')">Cancel</button>
+      <button class="btn btn-gold" style="flex:2" onclick="recordCashOut()">Cash Out</button>
+    </div>
+  </div>
+</div>
+
+<!-- Chip Check -->
+<div class="overlay" id="chipCheckOverlay" style="display:none" onclick="if(event.target===this){closeModal('chipCheckOverlay');resetChipCheckModal()}">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="chipCheckTitle">Chip Check</div>
+    <div style="font-size:13px;color:var(--text-dim);margin-bottom:16px" id="chipCheckSub">Enter current chip counts for a live snapshot.</div>
+    <div id="chipCheckFields"></div>
+    <div class="modal-actions" id="chipCheckActions">
+      <button class="btn btn-outline" style="flex:1" onclick="closeModal('chipCheckOverlay');resetChipCheckModal()">Cancel</button>
+      <button class="btn btn-gold" style="flex:2" onclick="saveChipCheck()">Update Board</button>
+    </div>
+  </div>
+</div>
+
+<!-- New Bet -->
+<div class="overlay" id="betOverlay" style="display:none" onclick="if(event.target===this)closeModal('betOverlay')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">New Side Bet</div>
+    <div class="form-row">
+      <label class="field-label">Description</label>
+      <input class="field" id="betDesc" placeholder="e.g. Next hand winner, river card suit…">
+    </div>
+    <div class="form-row">
+      <label class="field-label">Stake ($)</label>
+      <input class="field" id="betAmount" type="number" min="1" placeholder="0">
+      <div class="presets">
+        <button class="preset" onclick="setAmt('betAmount',5)">$5</button>
+        <button class="preset" onclick="setAmt('betAmount',10)">$10</button>
+        <button class="preset" onclick="setAmt('betAmount',20)">$20</button>
+        <button class="preset" onclick="setAmt('betAmount',50)">$50</button>
+        <button class="preset" onclick="setAmt('betAmount',100)">$100</button>
+      </div>
+    </div>
+    <div class="form-row">
+      <label class="field-label">Tap to assign — 🟡 Proposer · 🟢 Taker · 🔵 Side Rider</label>
+      <div class="sel-grid" id="betPlayerSel"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" style="flex:1" onclick="closeModal('betOverlay')">Cancel</button>
+      <button class="btn btn-gold" style="flex:2" onclick="submitBet()">Lock It In</button>
+    </div>
+  </div>
+</div>
+
+<!-- Nit Game -->
+<div class="overlay" id="nitOverlay" style="display:none" onclick="if(event.target===this)closeModal('nitOverlay')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Start Nit Game</div>
+    <div class="form-row">
+      <label class="field-label">Payout per player ($)</label>
+      <input class="field" id="nitAmount" type="number" min="1" value="5">
+      <div class="presets"><button class="preset" onclick="setAmt('nitAmount',5)">$5</button><button class="preset" onclick="setAmt('nitAmount',10)">$10</button><button class="preset" onclick="setAmt('nitAmount',25)">$25</button></div>
+    </div>
+    <div class="form-row">
+      <label class="field-label">Players opting in</label>
+      <div class="sel-grid" id="nitPlayerSel"></div>
+    </div>
+    <div class="form-row">
+      <div class="toggle-row"><span class="toggle-label">Affects chip stacks</span><button class="toggle" id="nitChipToggle" onclick="toggleEl('nitChipToggle')"></button></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" style="flex:1" onclick="closeModal('nitOverlay')">Cancel</button>
+      <button class="btn btn-gold" style="flex:2" onclick="startNitGame()">Start Game</button>
+    </div>
+  </div>
+</div>
+
+<!-- 2/7 -->
+<div class="overlay" id="lowOverlay" style="display:none" onclick="if(event.target===this)closeModal('lowOverlay')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Declare 2/7</div>
+    <div class="form-row">
+      <label class="field-label">Payout per player ($)</label>
+      <input class="field" id="lowAmount" type="number" min="1" value="5">
+      <div class="presets"><button class="preset" onclick="setAmt('lowAmount',5)">$5</button><button class="preset" onclick="setAmt('lowAmount',10)">$10</button><button class="preset" onclick="setAmt('lowAmount',25)">$25</button></div>
+    </div>
+    <div class="form-row">
+      <label class="field-label">Players opting in</label>
+      <div class="sel-grid" id="lowPlayerSel"></div>
+    </div>
+    <div class="form-row">
+      <div class="toggle-row"><span class="toggle-label">Affects chip stacks</span><button class="toggle" id="lowChipToggle" onclick="toggleEl('lowChipToggle')"></button></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" style="flex:1" onclick="closeModal('lowOverlay')">Cancel</button>
+      <button class="btn btn-gold" style="flex:2" onclick="startLowGame()">It's Live</button>
+    </div>
+  </div>
+</div>
+
+<!-- N64 -->
+<div class="overlay" id="n64Overlay" style="display:none" onclick="if(event.target===this)closeModal('n64Overlay')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">N64 Match</div>
+    <div class="form-row">
+      <label class="field-label">Game</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap" id="n64GameSel">
+        <button class="sel-chip" onclick="selectN64Game(this,'Mario Kart')">🏎 Mario Kart</button>
+        <button class="sel-chip" onclick="selectN64Game(this,'Smash Bros')">⚔️ Smash Bros</button>
+        <button class="sel-chip" onclick="selectN64Game(this,'GoldenEye')">🔫 GoldenEye</button>
+      </div>
+      <input class="field" id="n64GameCustom" placeholder="Or type custom…" style="margin-top:8px">
+    </div>
+    <div class="form-row">
+      <label class="field-label">Stake per player ($)</label>
+      <input class="field" id="n64Amount" type="number" min="1" placeholder="0">
+      <div class="presets"><button class="preset" onclick="setAmt('n64Amount',5)">$5</button><button class="preset" onclick="setAmt('n64Amount',10)">$10</button><button class="preset" onclick="setAmt('n64Amount',20)">$20</button></div>
+    </div>
+    <div class="form-row">
+      <div class="toggle-row" style="padding:0;margin-bottom:8px"><span class="toggle-label" style="color:var(--text)">Team mode</span><button class="toggle" id="n64TeamToggle" onclick="toggleEl('n64TeamToggle');renderN64PlayerSel()"></button></div>
+    </div>
+    <div class="form-row">
+      <label class="field-label" id="n64PlayerLabel">Select players</label>
+      <div class="sel-grid" id="n64PlayerSel"></div>
+    </div>
+    <div class="form-row">
+      <label class="field-label">Prize split</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap" id="n64SplitSel">
+        <button class="sel-chip s-gold" onclick="selectSplit(this,'winner-take-all')">Winner takes all</button>
+        <button class="sel-chip" onclick="selectSplit(this,'60-30-10')">60/30/10</button>
+        <button class="sel-chip" onclick="selectSplit(this,'70-20-10')">70/20/10</button>
+        <button class="sel-chip" onclick="selectSplit(this,'50-30-20')">50/30/20</button>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" style="flex:1" onclick="closeModal('n64Overlay')">Cancel</button>
+      <button class="btn btn-gold" style="flex:2" onclick="startN64()">Start Match</button>
+    </div>
+  </div>
+</div>
+
+<!-- Race -->
+<div class="overlay" id="raceOverlay" style="display:none" onclick="if(event.target===this)closeModal('raceOverlay')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">40-Yard Dash</div>
+    <div class="form-row">
+      <label class="field-label">Stake ($)</label>
+      <input class="field" id="raceAmount" type="number" min="1" placeholder="0">
+      <div class="presets"><button class="preset" onclick="setAmt('raceAmount',5)">$5</button><button class="preset" onclick="setAmt('raceAmount',10)">$10</button><button class="preset" onclick="setAmt('raceAmount',20)">$20</button><button class="preset" onclick="setAmt('raceAmount',50)">$50</button></div>
+    </div>
+    <div class="form-row">
+      <label class="field-label">Runners</label>
+      <div class="sel-grid" id="racePlayerSel"></div>
+    </div>
+    <div class="form-row">
+      <label class="field-label">Odds (winner gets N:D × stake per loser)</label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input class="field" id="raceOddsN" type="number" min="1" value="1" style="width:60px;text-align:center">
+        <span style="color:var(--text-dim);font-size:16px">:</span>
+        <input class="field" id="raceOddsD" type="number" min="1" value="1" style="width:60px;text-align:center">
+      </div>
+      <div class="presets"><button class="preset" onclick="setOdds(1,1)">1:1</button><button class="preset" onclick="setOdds(2,1)">2:1</button><button class="preset" onclick="setOdds(3,1)">3:1</button><button class="preset" onclick="setOdds(3,2)">3:2</button></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" style="flex:1" onclick="closeModal('raceOverlay')">Cancel</button>
+      <button class="btn btn-gold" style="flex:2" onclick="startRace()">They're Off</button>
+    </div>
+  </div>
+</div>
+
+<!-- End night confirm -->
+<div class="overlay" id="endNightOverlay" style="display:none" onclick="if(event.target===this)closeModal('endNightOverlay')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="endNightTitle">End Game?</div>
+    <p style="font-size:13px;color:var(--text-dim);line-height:1.6;margin-bottom:12px" id="endNightBody">This archives tonight's full record and starts a fresh night.</p>
+    <div id="endNightWarning"></div>
+    <div class="modal-actions" id="endNightActions">
+      <button class="btn btn-outline" style="flex:1" onclick="closeModal('endNightOverlay')">Cancel</button>
+      <button class="btn btn-danger" style="flex:1" onclick="endNight()">Archive</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+// ── Firebase ──────────────────────────────────────────
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
+import { getDatabase, ref, set, get, update, push, onValue, off, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/12.13.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCCiuXlNcjLE9KLgQi0UIhVK0qXRcDW9co",
+  authDomain: "ppppoker-1879b.firebaseapp.com",
+  databaseURL: "https://ppppoker-1879b-default-rtdb.firebaseio.com",
+  projectId: "ppppoker-1879b",
+  storageBucket: "ppppoker-1879b.firebasestorage.app",
+  messagingSenderId: "70205965619",
+  appId: "1:70205965619:web:d9495553b02823b91a2a46"
+};
+const firebaseApp = initializeApp(firebaseConfig);
+const db = getDatabase(firebaseApp);
+
+// ── Session state ─────────────────────────────────────
+let SESSION = { role: null, roomCode: null, playerId: null, playerName: null };
+// role: 'host' | 'player' | 'spectator'
+
+// ── Room data (live synced) ───────────────────────────
+let R = {}; // full room snapshot
+let roomRef = null;
+let unsubRoom = null;
+
+// ── Utils ─────────────────────────────────────────────
+function uid(){ return Math.random().toString(36).slice(2,9) }
+function esc(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) }
+function setAmt(id,v){ document.getElementById(id).value=v }
+function setOdds(n,d){ document.getElementById('raceOddsN').value=n; document.getElementById('raceOddsD').value=d }
+function toggleEl(id){ document.getElementById(id).classList.toggle('on') }
+function isOn(id){ return document.getElementById(id).classList.contains('on') }
+function closeModal(id){ document.getElementById(id).style.display='none' }
+function showToast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200) }
+function pname(id){ return R.players?.[id]?.name || '?' }
+function activePlayers(){ return Object.values(R.players||{}).filter(p=>p.active) }
+function isHost(){ return SESSION.role==='host' }
+function canInteract(){ return SESSION.role==='host'||SESSION.role==='player' }
+
+// expose globally for onclick handlers
+window.closeModal=closeModal; window.setAmt=setAmt; window.setOdds=setOdds; window.toggleEl=toggleEl;
+
+// ── JOIN SCREEN ───────────────────────────────────────
+window.showCreateRoom = function(){
+  document.getElementById('joinStep1').style.display='none';
+  document.getElementById('joinCreateRoom').style.display='block';
+  const code=Math.random().toString(36).slice(2,6).toUpperCase();
+  document.getElementById('hostRoomCode').value=code;
+}
+window.backToStep1 = function(){
+  document.getElementById('joinStep1').style.display='block';
+  document.getElementById('joinStep2').style.display='none';
+  document.getElementById('joinCreateRoom').style.display='none';
+  document.getElementById('joinErr').textContent='';
+}
+window.joinWithCode = async function(){
+  const code = document.getElementById('joinRoomCode').value.trim().toUpperCase();
+  if(!code){ document.getElementById('joinErr').textContent='Enter a room code'; return; }
+  document.getElementById('joinErr').textContent='Checking…';
+  const snap = await get(ref(db,`rooms/${code}`));
+  if(!snap.exists()){ document.getElementById('joinErr').textContent='Room not found. Check the code.'; return; }
+  SESSION.roomCode = code;
+  document.getElementById('joinStep1').style.display='none';
+  document.getElementById('joinStep2').style.display='block';
+  document.getElementById('joinErr').textContent='';
+}
+window.joinAsPlayer = async function(){
+  const name = document.getElementById('joinName').value.trim();
+  if(!name){ document.getElementById('joinErr2').textContent='Enter your name'; return; }
+  document.getElementById('joinErr2').textContent='Joining…';
+  const pid = uid();
+  SESSION.playerId = pid;
+  SESSION.playerName = name;
+  SESSION.role = 'player';
+  // Add player to room
+  await set(ref(db,`rooms/${SESSION.roomCode}/players/${pid}`),{
+    id:pid, name, active:true, buyIns:0, chipTotal:null, cashedOut:false, isHost:false, joinedAt:Date.now()
+  });
+  enterApp();
+}
+window.createRoom = async function(){
+  const name = document.getElementById('hostName').value.trim()||'Chris';
+  const code = document.getElementById('hostRoomCode').value.trim().toUpperCase();
+  const buyIn = parseInt(document.getElementById('hostBuyIn').value)||25;
+  if(!code){ document.getElementById('joinErr3').textContent='Enter a room code'; return; }
+  document.getElementById('joinErr3').textContent='Creating…';
+  const pid = uid();
+  SESSION.roomCode = code;
+  SESSION.playerId = pid;
+  SESSION.playerName = name;
+  SESSION.role = 'host';
+  const d = new Date();
+  const nightName = d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  await set(ref(db,`rooms/${code}`),{
+    nightName, buyIn, createdAt:Date.now(),
+    players:{ [pid]:{ id:pid,name,active:true,buyIns:0,chipTotal:null,cashedOut:false,isHost:true,joinedAt:Date.now() }},
+    bets:{}, nitGames:{}, lowGames:{}, n64Games:{}, raceGames:{}, drinks:{}, history:{}
+  });
+  enterApp();
+}
+window.spectateMode = function(){
+  const code = document.getElementById('joinRoomCode').value.trim().toUpperCase();
+  if(!code){ document.getElementById('joinErr').textContent='Enter a room code first'; return; }
+  SESSION.roomCode = code; SESSION.role = 'spectator';
+  enterApp();
+}
+
+// ── URL room code pre-fill ────────────────────────────
+(function(){
+  const params = new URLSearchParams(window.location.search);
+  const rc = params.get('room');
+  if(rc){ document.getElementById('joinRoomCode').value=rc.toUpperCase(); }
+})();
+
+// ── ENTER APP ────────────────────────────────────────
+function enterApp(){
+  document.getElementById('joinScreen').style.display='none';
+  document.getElementById('mainApp').style.display='flex';
+  document.getElementById('mainApp').style.flexDirection='column';
+  document.getElementById('mainApp').style.height='100%';
+
+  // Role badge
+  const rb=document.getElementById('roleBadge');
+  rb.textContent=SESSION.role; rb.className='role-badge role-'+SESSION.role;
+  document.getElementById('roomPill').textContent=SESSION.roomCode;
+  document.getElementById('headerSub').textContent=SESSION.playerName||'Spectator';
+
+  // Hide host-only elements for non-hosts
+  if(!isHost()){
+    document.querySelectorAll('.host-only').forEach(el=>el.style.display='none');
+    // hide history tab
+    document.getElementById('t-history').style.display='none';
+  }
+  // Spectators: further restrict
+  if(SESSION.role==='spectator'){
+    document.getElementById('t-players').style.display='none';
+    document.getElementById('t-bets').style.display='none';
+    document.getElementById('t-games').style.display='none';
+    document.getElementById('t-settle').style.display='none';
+  }
+
+  // Show hot dog for host
+  if(isHost()) document.getElementById('hotdogBtn').style.display='block';
+
+  // Render inline QR on leaderboard for host
+  if(isHost()){
+    const code = SESSION.roomCode;
+    const url = `${window.location.origin}${window.location.pathname}?room=${code}`;
+    document.getElementById('lbRoomCode').textContent = code;
+    document.getElementById('lbRoomUrl').textContent = url;
+    const lbQr = document.getElementById('lbQrCode');
+    lbQr.innerHTML='';
+    new QRCode(lbQr,{text:url,width:72,height:72,colorDark:'#000',colorLight:'#fff'});
+    // Store url for share functions
+    window._roomUrl = url;
+    window._roomCode = code;
+  }
+
+  // Subscribe to room
+  roomRef = ref(db, `rooms/${SESSION.roomCode}`);
+  unsubRoom = onValue(roomRef, snap => {
+    if(!snap.exists()) return;
+    R = snap.val();
+    // Normalize objects that might be null/missing
+    R.players = R.players||{}; R.bets = R.bets||{}; R.nitGames = R.nitGames||{};
+    R.lowGames = R.lowGames||{}; R.n64Games = R.n64Games||{}; R.raceGames = R.raceGames||{};
+    R.drinks = R.drinks||{}; R.hotdogOrders = R.hotdogOrders||{}; R.history = R.history||{};
+    document.getElementById('buyInAmt').textContent = R.buyIn||25;
+    renderAll();
+  }, err => {
+    document.getElementById('connectingBanner').style.display='block';
+  });
+
+  // Connection state
+  onValue(ref(db,'.info/connected'), snap => {
+    document.getElementById('connectingBanner').style.display = snap.val() ? 'none' : 'block';
+  });
+}
+
+// ── ROOM INFO / QR ────────────────────────────────────
+window.showRoomInfo = function(){
+  const code = SESSION.roomCode;
+  const url = `${window.location.origin}${window.location.pathname}?room=${code}`;
+  document.getElementById('qrRoomCode').textContent = code;
+  document.getElementById('roomInfoLink').innerHTML = `<a href="${url}" style="color:var(--gold)">${url}</a>`;
+  const qDiv = document.getElementById('qrCodeDiv');
+  qDiv.innerHTML='';
+  new QRCode(qDiv,{text:url,width:160,height:160,colorDark:'#000',colorLight:'#fff'});
+  document.getElementById('roomInfoOverlay').style.display='flex';
+}
+
+window.shareRoomLink = function(){
+  const url = window._roomUrl;
+  const code = window._roomCode;
+  const text = `Join PPPPoker! Room code: ${code}\n${url}`;
+  if(navigator.share){
+    navigator.share({title:'PPPPoker',text,url}).catch(()=>{});
+  } else {
+    navigator.clipboard.writeText(text).then(()=>showToast('Link copied!')).catch(()=>{
+      prompt('Copy this link:',url);
+    });
+  }
+}
+
+window.shareRoomSMS = function(){
+  const url = window._roomUrl;
+  const code = window._roomCode;
+  const body = encodeURIComponent(`Join PPPPoker tonight! Room code: ${code} — ${url}`);
+  window.open(`sms:?body=${body}`,'_blank');
+}
+
+// ── TAB NAV ───────────────────────────────────────────
+let curTab='board';
+window.switchTab = function(t){
+  document.querySelectorAll('.nav-tab').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(el=>el.classList.remove('active'));
+  document.getElementById('t-'+t).classList.add('active');
+  document.getElementById('sec-'+t).classList.add('active');
+  curTab=t;
+  const fab=document.getElementById('fab');
+  if(t==='bets'&&canInteract()){fab.style.display='block';fab.textContent='＋ New Side Bet';}
+  else{fab.style.display='none';}
+  if(t==='settle')renderSettle();
+  if(t==='history')renderHistory();
+  if(t==='drinks')renderDrinks();
+}
+window.fabAction = function(){ if(curTab==='bets')openBetModal(); }
+
+function renderAll(){
+  renderLeaderboard(); renderPlayers(); renderBets();
+  renderNitGames(); renderLowGames(); renderN64Games(); renderRaceGames();
+  renderDrinks();
+  updateBadges();
+  if(curTab==='settle')renderSettle();
+  if(curTab==='history')renderHistory();
+}
+function updateBadges(){
+  const pending=Object.values(R.bets||{}).filter(b=>!b.settled).length;
+  const t=document.getElementById('t-bets');
+  t.innerHTML='Side Bets'+(pending?`<span class="nav-badge">${pending}</span>`:'');
+}
+
+// ── DB HELPERS ────────────────────────────────────────
+function dbSet(path, val){ return set(ref(db,`rooms/${SESSION.roomCode}/${path}`), val) }
+function dbUpdate(path, val){ return update(ref(db,`rooms/${SESSION.roomCode}/${path}`), val) }
+function dbPush(path, val){ return push(ref(db,`rooms/${SESSION.roomCode}/${path}`), val) }
+
+// ── NIGHT ─────────────────────────────────────────────
+window.openNightModal = function(){
+  document.getElementById('nightNameInput').value=R.nightName||'';
+  document.getElementById('nightOverlay').style.display='flex';
+}
+window.saveNightName = function(){
+  const v=document.getElementById('nightNameInput').value.trim();
+  if(v) dbSet('nightName',v);
+  closeModal('nightOverlay');
+}
+window.openBuyInSettings = function(){
+  document.getElementById('buyInField').value=R.buyIn||25;
+  document.getElementById('buyInOverlay').style.display='flex';
+}
+window.saveBuyIn = function(){
+  const v=parseInt(document.getElementById('buyInField').value);
+  if(v>0) dbSet('buyIn',v);
+  closeModal('buyInOverlay');
+}
+
+// ── PLAYERS ───────────────────────────────────────────
+window.addPlayerManual = function(){
+  const inp=document.getElementById('newPlayerInput');
+  const name=inp.value.trim(); if(!name)return;
+  if(Object.values(R.players||{}).find(p=>p.name.toLowerCase()===name.toLowerCase())){showToast('Name taken');return;}
+  const pid=uid();
+  dbSet(`players/${pid}`,{id:pid,name,active:true,buyIns:0,chipTotal:null,cashedOut:false,isHost:false,joinedAt:Date.now()});
+  inp.value='';
+}
+window.toggleActive = function(id){
+  if(!isHost())return;
+  dbUpdate(`players/${id}`,{active:!R.players[id]?.active});
+}
+window.removePlayer = function(id){
+  if(!isHost())return;
+  dbSet(`players/${id}`,null);
+}
+
+let pendingBuyInId=null;
+window.openPlayerBuyIn = function(id){
+  if(!isHost())return;
+  const p=R.players[id];if(!p)return;
+  pendingBuyInId=id;
+  document.getElementById('playerBuyInTitle').textContent=p.name;
+  document.getElementById('playerBuyInSub').textContent=`Buy-ins so far: ${p.buyIns||0} ($${(p.buyIns||0)*(R.buyIn||25)})`;
+  document.getElementById('playerBuyInAmt').textContent=R.buyIn||25;
+  document.getElementById('playerBuyInOverlay').style.display='flex';
+}
+window.recordBuyIn = function(){
+  const p=R.players[pendingBuyInId];if(!p)return;
+  dbUpdate(`players/${pendingBuyInId}`,{buyIns:(p.buyIns||0)+1});
+  showToast(`+$${R.buyIn||25} buy-in for ${p.name}`);
+  closeModal('playerBuyInOverlay');
+}
+
+window.dealEveryoneIn = function(){
+  const ap=activePlayers();if(!ap.length){showToast('No active players');return;}
+  const upd={};
+  ap.forEach(p=>upd[`players/${p.id}/buyIns`]=(p.buyIns||0)+1);
+  update(ref(db,`rooms/${SESSION.roomCode}`),upd);
+  showToast(`${ap.length} players dealt in · $${ap.length*(R.buyIn||25)} pool`);
+}
+window.tipDealer = function(){
+  const host=Object.values(R.players||{}).find(p=>p.isHost);
+  if(!host){showToast('No host found');return;}
+  const others=activePlayers().filter(p=>p.id!==host.id);
+  if(!others.length){showToast('No other active players');return;}
+  others.forEach(p=>{
+    const bid=uid();
+    dbSet(`bets/${bid}`,{id:bid,desc:'Tip the Dealer',amount:5,proposer:p.id,acceptor:host.id,siders:[],settled:true,winner:'acceptor',ts:Date.now()});
+  });
+  showToast(`Dealer tipped $${5*others.length} 🤑`);
+}
+
+// ── BALANCE CALCS ─────────────────────────────────────
+function getPlayerSideBal(pid){
+  let bal=0;
+  Object.values(R.bets||{}).forEach(b=>{
+    if(!b.settled)return;
+    const siders=b.siders||[];
+    if(b.winner==='proposer'){
+      if(b.proposer===pid)bal+=b.amount*(1+siders.length);
+      if(siders.includes(pid))bal+=b.amount;
+      if(b.acceptor===pid)bal-=b.amount*(1+siders.length);
+    }else{
+      if(b.acceptor===pid)bal+=b.amount*(1+siders.length);
+      if(b.proposer===pid)bal-=b.amount*(1+siders.length);
+      if(siders.includes(pid))bal-=b.amount;
+    }
+  });
+  Object.values(R.nitGames||{}).forEach(g=>{
+    if(!g.settled||g.affectsChips)return;
+    const count=(g.players||[]).length;
+    if(g.loser===pid)bal-=g.amount*(count-1);
+    else if((g.players||[]).includes(pid))bal+=g.amount;
+  });
+  Object.values(R.lowGames||{}).forEach(g=>{
+    if(!g.hits||g.affectsChips)return;
+    Object.values(g.hits).forEach(h=>{
+      const count=(g.players||[]).length;
+      if(h.winner===pid)bal+=g.amount*(count-1);
+      else if((g.players||[]).includes(pid))bal-=g.amount;
+    });
+  });
+  Object.values(R.n64Games||{}).forEach(g=>{
+    if(!g.settled)return;
+    const splits=calcN64Splits(g);
+    if(splits[pid]!=null)bal+=splits[pid];
+  });
+  Object.values(R.raceGames||{}).forEach(g=>{
+    if(!g.settled||!g.winner)return;
+    const losers=(g.runners||[]).filter(r=>r!==g.winner);
+    if(g.winner===pid)bal+=losers.length*(g.amount*g.oddsN/g.oddsD);
+    else if((g.runners||[]).includes(pid))bal-=(g.amount*g.oddsN/g.oddsD);
+  });
+  return Math.round(bal*100)/100;
+}
+function getPlayerChipNet(pid){
+  const p=R.players?.[pid];if(!p||p.chipTotal==null)return null;
+  return p.chipTotal-(p.buyIns||0)*(R.buyIn||25);
+}
+function getPlayerCombinedBal(pid){
+  return getPlayerSideBal(pid)+(getPlayerChipNet(pid)||0);
+}
+
+// ── RENDER PLAYERS ────────────────────────────────────
+function renderPlayers(){
+  const grid=document.getElementById('playerGrid');
+  const players=Object.values(R.players||{}).sort((a,b)=>a.joinedAt-b.joinedAt);
+  if(!players.length){grid.innerHTML='<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">No players yet.</div></div>';return;}
+  const buyIn=R.buyIn||25;
+  grid.innerHTML=players.map(p=>{
+    const bal=getPlayerSideBal(p.id);
+    const cls=bal>0?'pos':bal<0?'neg':'';
+    const str=bal>0?`+$${bal}`:bal<0?`-$${Math.abs(bal)}`:'$0';
+    const count=p.buyIns||0;
+    const buyStr=count===0?'No buy-in yet':`${count} buy-in${count>1?'s':''} · $${count*buyIn}`;
+    const chipNet=getPlayerChipNet(p.id);
+    const chipStr=p.cashedOut?`Cashed $${p.chipTotal} (${chipNet>=0?'+':''}$${chipNet})`:p.chipTotal!=null?`Chips $${p.chipTotal} (${chipNet>=0?'+':''}$${chipNet}) prelim`:'';
+    const isMine=p.id===SESSION.playerId;
+    const canEdit=isHost();
+    return `<div class="player-chip ${p.active?'active':''} ${p.cashedOut?'cashed-out':''}">
+      ${canEdit?`<button class="p-remove" onclick="removePlayer('${p.id}')">✕</button>`:''}
+      <div class="p-top" onclick="${canEdit?`toggleActive('${p.id}')`:''}">
+        <div class="p-avatar">${p.name[0].toUpperCase()}${p.isHost?'<span style="position:absolute;top:-2px;right:-2px;font-size:8px">👑</span>':''}${isMine?'<span style="position:absolute;bottom:-2px;right:-2px;font-size:8px">🫵</span>':''}</div>
+        <div style="min-width:0">
+          <div class="p-name">${esc(p.name)}${p.isHost?' <span style="font-size:9px;color:var(--gold);font-family:DM Mono,monospace">HOST</span>':''}${p.cashedOut?' <span style="font-size:9px;color:var(--green)">OUT</span>':''}</div>
+          <div class="p-sub" style="color:var(--text-muted)">${buyStr}</div>
+          ${chipStr?`<div class="p-sub" style="color:${chipNet>=0?'var(--green)':'var(--red-light)'}">${chipStr}</div>`:''}
+          <div class="p-sub ${cls}">${str} sides</div>
+        </div>
+      </div>
+      ${canEdit?`<div style="display:flex;border-top:1px solid var(--border-dim)">
+        <button class="p-buyin-btn" style="flex:1;border-right:1px solid var(--border-dim);border-top:none" onclick="openPlayerBuyIn('${p.id}')">＋ Buy In · $${buyIn}</button>
+        <button class="p-buyin-btn" style="flex:1;border-top:none;color:${p.cashedOut?'var(--green)':'var(--text-dim)'}" onclick="openCashOut('${p.id}')">${p.cashedOut?'✓ Cashed':'Cash Out'}</button>
+      </div>`:''}
+    </div>`;
+  }).join('');
+  // Update totals
+  const totalBI=players.reduce((s,p)=>s+(p.buyIns||0),0);
+  document.getElementById('totalPokerPool').textContent=`$${totalBI*buyIn}`;
+  document.getElementById('totalBuyInCount').textContent=`${totalBI} buy-in${totalBI!==1?'s':''}`;
+  let sideTotal=0;
+  activePlayers().forEach(p=>{const b=getPlayerSideBal(p.id);if(b>0)sideTotal+=b;});
+  document.getElementById('totalSideAction').textContent=`$${sideTotal}`;
+}
+
+// ── LEADERBOARD ───────────────────────────────────────
+function renderLeaderboard(){
+  const buyIn=R.buyIn||25;
+  const players=Object.values(R.players||{});
+  const totalBI=players.reduce((s,p)=>s+(p.buyIns||0),0);
+  document.getElementById('boardPokerPool').textContent=`$${totalBI*buyIn}`;
+  document.getElementById('boardBuyInCount').textContent=`${totalBI} buy-in${totalBI!==1?'s':''}`;
+  let sideTotal=0;
+  activePlayers().forEach(p=>{const b=getPlayerSideBal(p.id);if(b>0)sideTotal+=b;});
+  document.getElementById('boardSideTotal').textContent=`$${sideTotal}`;
+
+  const ap=activePlayers();
+  const rows=document.getElementById('leaderboardRows');
+  const empty=document.getElementById('leaderboardEmpty');
+  const hdBtn=document.getElementById('hotdogBtn');
+  if(hdBtn&&isHost())hdBtn.style.display='block';
+
+  if(!ap.length){rows.innerHTML='';empty.style.display='block';return;}
+
+  const hasChipData=ap.some(p=>p.chipTotal!=null);
+  const entries=ap.map(p=>{
+    const side=getPlayerSideBal(p.id);
+    const chipNet=getPlayerChipNet(p.id);
+    const combined=side+(chipNet||0);
+    return {p,side,chipNet,combined};
+  }).sort((a,b)=>b.combined-a.combined);
+
+  const maxAbs=Math.max(...entries.map(e=>Math.abs(e.combined)),1);
+  const hasAction=entries.some(e=>e.combined!==0);
+
+  if(!hasAction){rows.innerHTML='';empty.style.display='block';return;}
+  empty.style.display='none';
+
+  function playerRecord(pid){
+    let w=0,l=0;
+    Object.values(R.bets||{}).filter(b=>b.settled).forEach(b=>{
+      const involved=b.proposer===pid||b.acceptor===pid||(b.siders||[]).includes(pid);
+      if(!involved)return;
+      const won=(b.winner==='proposer'&&(b.proposer===pid||(b.siders||[]).includes(pid)))||(b.winner==='acceptor'&&b.acceptor===pid);
+      won?w++:l++;
+    });
+    return `${w}W-${l}L`;
+  }
+
+  const medals=['🥇','🥈','🥉'];
+  const rankCls=['lb-first','lb-second','lb-third'];
+
+  rows.innerHTML=entries.map((e,i)=>{
+    const {p,side,chipNet,combined}=e;
+    const cls=i<3?rankCls[i]:'';
+    const rankDisp=i<3?medals[i]:`${i+1}`;
+    const amtCls=combined>0?'val-pos':combined<0?'val-neg':'val-zero';
+    const amtStr=combined>0?`+$${combined}`:combined<0?`-$${Math.abs(combined)}`:'$0';
+    const barColor=combined>0?'var(--green)':combined<0?'var(--red-light)':'var(--text-muted)';
+    const barWidth=combined===0?2:Math.round(Math.abs(combined)/maxAbs*100);
+    let breakdown='';
+    if(hasChipData&&chipNet!=null){
+      const chipStr=chipNet>=0?`+$${chipNet}`:`-$${Math.abs(chipNet)}`;
+      const sideStr=side>=0?`+$${side}`:`-$${Math.abs(side)}`;
+      breakdown=`<span style="color:var(--gold)">chips ${chipStr}</span> · <span style="color:var(--blue)">sides ${sideStr}</span>${p.cashedOut?' · <span style="color:var(--green);font-size:9px">CASHED</span>':' · <span style="color:var(--text-muted);font-size:9px">prelim</span>'}`;
+    }else{
+      breakdown=`${playerRecord(p.id)} · sides only`;
+    }
+    return `<div class="lb-row ${cls}">
+      <div class="lb-rank">${rankDisp}</div>
+      <div class="lb-avatar">${p.name[0].toUpperCase()}${p.isHost?'<span style="position:absolute;top:-3px;right:-3px;font-size:9px">👑</span>':''}</div>
+      <div class="lb-info">
+        <div class="lb-name">${esc(p.name)}${p.isHost?' <span style="font-family:DM Mono,monospace;font-size:9px;color:var(--gold)">HOST</span>':''}</div>
+        <div class="lb-detail">${breakdown}</div>
+        <div class="lb-bar-wrap"><div class="lb-bar" style="width:${barWidth}%;background:${barColor}"></div></div>
+      </div>
+      <div class="lb-amount ${amtCls}">${amtStr}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── CASH OUT ─────────────────────────────────────────
+let cashOutTargetId=null;
+window.openCashOut = function(id){
+  if(!isHost())return;
+  const p=R.players[id];if(!p)return;
+  cashOutTargetId=id;
+  document.getElementById('cashOutTitle').textContent=`Cash Out — ${p.name}`;
+  document.getElementById('cashOutSub').textContent=`${p.buyIns||0} buy-in${(p.buyIns||0)!==1?'s':''} · $${(p.buyIns||0)*(R.buyIn||25)} in pot`;
+  document.getElementById('cashOutField').value=p.chipTotal!=null?p.chipTotal:'';
+  document.getElementById('cashOutOverlay').style.display='flex';
+}
+window.recordCashOut = function(){
+  const val=parseFloat(document.getElementById('cashOutField').value);
+  if(isNaN(val)||val<0){showToast('Enter valid chip total');return;}
+  const p=R.players[cashOutTargetId];if(!p)return;
+  dbUpdate(`players/${cashOutTargetId}`,{chipTotal:val,cashedOut:true});
+  const net=val-(p.buyIns||0)*(R.buyIn||25);
+  showToast(`${p.name} cashed out · ${net>=0?'+':''}$${net} poker`);
+  closeModal('cashOutOverlay');
+}
+
+// ── CHIP CHECK ───────────────────────────────────────
+window.openChipCheck = function(){
+  const ap=activePlayers();if(!ap.length){showToast('No active players');return;}
+  document.getElementById('chipCheckTitle').textContent='Chip Check';
+  document.getElementById('chipCheckSub').textContent='Enter current chip counts for a live snapshot.';
+  document.getElementById('chipCheckFields').innerHTML=ap.map(p=>`
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <div style="font-size:13px;font-weight:600;min-width:90px">${esc(p.name)}</div>
+      <input class="field" style="flex:1" type="number" min="0" placeholder="$" id="cc_${p.id}" value="${p.chipTotal!=null?p.chipTotal:''}">
+    </div>`).join('');
+  document.getElementById('chipCheckActions').innerHTML=`
+    <button class="btn btn-outline" style="flex:1" onclick="closeModal('chipCheckOverlay')">Cancel</button>
+    <button class="btn btn-gold" style="flex:2" onclick="saveChipCheck()">Update Board</button>`;
+  document.getElementById('chipCheckOverlay').style.display='flex';
+}
+window.saveChipCheck = function(){
+  const ap=activePlayers();const upd={};
+  ap.forEach(p=>{
+    const el=document.getElementById(`cc_${p.id}`);if(!el)return;
+    const val=parseFloat(el.value);
+    if(!isNaN(val)&&val>=0)upd[`players/${p.id}/chipTotal`]=val;
+  });
+  update(ref(db,`rooms/${SESSION.roomCode}`),upd);
+  closeModal('chipCheckOverlay');showToast('Chip check saved 📊');
+}
+window.resetChipCheckModal=function(){}
+
+// ── CLOSE NIGHT ───────────────────────────────────────
+window.confirmCloseNight = function(){
+  const remaining=activePlayers().filter(p=>!p.cashedOut);
+  if(remaining.length){
+    document.getElementById('chipCheckTitle').textContent='Final Cash Out';
+    document.getElementById('chipCheckSub').textContent='Enter final chip totals for players still in:';
+    document.getElementById('chipCheckFields').innerHTML=remaining.map(p=>`
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <div style="font-size:13px;font-weight:600;min-width:90px">${esc(p.name)}</div>
+        <input class="field" style="flex:1" type="number" min="0" placeholder="$" id="cc_${p.id}" value="${p.chipTotal!=null?p.chipTotal:''}">
+      </div>`).join('');
+    document.getElementById('chipCheckActions').innerHTML=`
+      <button class="btn btn-outline" style="flex:1" onclick="closeModal('chipCheckOverlay')">Cancel</button>
+      <button class="btn btn-danger" style="flex:2" onclick="closeNightFinal()">Archive Night</button>`;
+    document.getElementById('chipCheckOverlay').style.display='flex';
+  }else{
+    closeNightFinal();
+  }
+}
+window.closeNightFinal = async function(){
+  const remaining=activePlayers().filter(p=>!p.cashedOut);
+  const upd={};
+  remaining.forEach(p=>{
+    const el=document.getElementById(`cc_${p.id}`);if(!el)return;
+    const val=parseFloat(el.value);
+    if(!isNaN(val)&&val>=0){upd[`players/${p.id}/chipTotal`]=val;upd[`players/${p.id}/cashedOut`]=true;}
+  });
+  if(Object.keys(upd).length) await update(ref(db,`rooms/${SESSION.roomCode}`),upd);
+
+  // Archive to history
+  const histId=uid();
+  const snap=await get(ref(db,`rooms/${SESSION.roomCode}`));
+  const nightData=snap.val();
+  await set(ref(db,`rooms/${SESSION.roomCode}/history/${histId}`),{
+    nightName:R.nightName,date:new Date().toISOString(),buyIn:R.buyIn,
+    players:nightData.players,bets:nightData.bets,
+    nitGames:nightData.nitGames,lowGames:nightData.lowGames,
+    n64Games:nightData.n64Games,raceGames:nightData.raceGames
+  });
+
+  // Reset room for new night
+  const d=new Date();
+  const newNight=d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  const resetUpd={nightName:newNight,bets:null,nitGames:null,lowGames:null,n64Games:null,raceGames:null};
+  Object.keys(R.players||{}).forEach(pid=>{
+    resetUpd[`players/${pid}/buyIns`]=0;
+    resetUpd[`players/${pid}/chipTotal`]=null;
+    resetUpd[`players/${pid}/cashedOut`]=false;
+  });
+  await update(ref(db,`rooms/${SESSION.roomCode}`),resetUpd);
+  closeModal('chipCheckOverlay');showToast('Game archived 📖');switchTab('board');
+}
+
+// ── SIDE BETS ─────────────────────────────────────────
+let betRoles={};
+function openBetModal(){
+  const ap=activePlayers();if(ap.length<2){showToast('Need 2+ active players');return;}
+  betRoles={};
+  document.getElementById('betDesc').value='';document.getElementById('betAmount').value='';
+  renderBetPlayerSel();document.getElementById('betOverlay').style.display='flex';
+}
+function renderBetPlayerSel(){
+  const ap=activePlayers();
+  document.getElementById('betPlayerSel').innerHTML=ap.map(p=>{
+    const r=betRoles[p.id];
+    const cls=r==='proposer'?'s-gold':r==='acceptor'?'s-green':r==='sider'?'s-blue':'';
+    return `<button class="sel-chip ${cls}" onclick="cycleBetRole('${p.id}')">${esc(p.name)}</button>`;
+  }).join('');
+}
+window.cycleBetRole=function(id){
+  const cur=betRoles[id]||null;let next;
+  if(!cur){const hasP=Object.values(betRoles).includes('proposer');const hasA=Object.values(betRoles).includes('acceptor');next=!hasP?'proposer':!hasA?'acceptor':'sider';}
+  else if(cur==='proposer')next='acceptor';else if(cur==='acceptor')next='sider';else next=null;
+  if(next==='proposer')Object.keys(betRoles).forEach(k=>{if(betRoles[k]==='proposer')betRoles[k]=null;});
+  if(next==='acceptor')Object.keys(betRoles).forEach(k=>{if(betRoles[k]==='acceptor')betRoles[k]=null;});
+  betRoles[id]=next;renderBetPlayerSel();
+}
+window.submitBet=function(){
+  const desc=document.getElementById('betDesc').value.trim()||'Side bet';
+  const amount=parseFloat(document.getElementById('betAmount').value);
+  if(!amount||amount<=0){showToast('Enter valid amount');return;}
+  const proposer=Object.keys(betRoles).find(k=>betRoles[k]==='proposer');
+  const acceptor=Object.keys(betRoles).find(k=>betRoles[k]==='acceptor');
+  if(!proposer||!acceptor){showToast('Need a proposer and a taker');return;}
+  const siders=Object.keys(betRoles).filter(k=>betRoles[k]==='sider');
+  const bid=uid();
+  dbSet(`bets/${bid}`,{id:bid,desc,amount,proposer,acceptor,siders,settled:false,winner:null,ts:Date.now()});
+  closeModal('betOverlay');showToast('Bet locked 🤝');
+}
+window.settleBet=function(id,winner){
+  dbUpdate(`bets/${id}`,{settled:true,winner});showToast('Settled ✓');
+}
+window.deleteBet=function(id){ dbSet(`bets/${id}`,null); }
+
+function renderBets(){
+  const list=document.getElementById('betsList');const empty=document.getElementById('betsEmpty');
+  const bets=Object.values(R.bets||{}).sort((a,b)=>a.ts-b.ts);
+  if(!bets.length){list.innerHTML='';empty.style.display='block';return;}
+  empty.style.display='none';
+  const pending=bets.filter(b=>!b.settled);const settled=bets.filter(b=>b.settled);
+  list.innerHTML=[...pending,...settled].map(b=>{
+    const pn=pname(b.proposer),an=pname(b.acceptor);
+    const siderTags=(b.siders||[]).map(s=>`<span class="tag tag-blue">${esc(pname(s))}</span>`).join('');
+    let footer;
+    if(!b.settled&&canInteract()){
+      footer=`<div class="card-footer">
+        <button class="btn btn-green btn-sm" style="flex:1" onclick="settleBet('${b.id}','proposer')">🟡 ${esc(pn)} wins</button>
+        <button class="btn btn-green btn-sm" style="flex:1" onclick="settleBet('${b.id}','acceptor')">🟢 ${esc(an)} wins</button>
+        <button class="btn btn-outline btn-sm" onclick="deleteBet('${b.id}')">🗑</button>
+      </div>`;
+    }else if(b.settled){
+      const wn=b.winner==='proposer'?pn:an;
+      const pot=b.amount*(1+(b.siders||[]).length);
+      footer=`<div class="card-footer"><span style="font-size:12px;color:var(--text-dim)">✓ <strong style="color:var(--green)">${esc(wn)}</strong> won $${pot}</span></div>`;
+    }else{footer='';}
+    return `<div class="card">
+      <div class="card-header"><span style="font-weight:600;font-size:14px">${esc(b.desc)}</span><span class="mono val-gold">$${b.amount}</span></div>
+      <div class="card-body" style="padding-top:10px;padding-bottom:6px">
+        <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+          <span class="tag tag-gold">${esc(pn)}</span><span style="color:var(--text-muted);font-size:11px">vs</span>
+          <span class="tag tag-green">${esc(an)}</span>${siderTags}
+          ${b.settled?'<span class="tag tag-dim" style="margin-left:auto">settled</span>':''}
+        </div>
+      </div>${footer}
+    </div>`;
+  }).join('');
+}
+
+// ── NIT GAME ─────────────────────────────────────────
+let nitSelPlayers={};
+window.openNitModal=function(){
+  nitSelPlayers={};const ap=activePlayers();
+  if(ap.length<2){showToast('Need 2+ active players');return;}
+  document.getElementById('nitAmount').value=5;document.getElementById('nitChipToggle').classList.remove('on');
+  document.getElementById('nitPlayerSel').innerHTML=ap.map(p=>`<button class="sel-chip" onclick="toggleNitPlayer('${p.id}',this)">${esc(p.name)}</button>`).join('');
+  document.getElementById('nitOverlay').style.display='flex';
+}
+window.toggleNitPlayer=function(id,el){nitSelPlayers[id]=!nitSelPlayers[id];el.classList.toggle('s-purple',!!nitSelPlayers[id]);}
+window.startNitGame=function(){
+  const players=Object.keys(nitSelPlayers).filter(k=>nitSelPlayers[k]);
+  if(players.length<2){showToast('Select 2+ players');return;}
+  const amount=parseFloat(document.getElementById('nitAmount').value)||5;
+  const affectsChips=isOn('nitChipToggle');
+  const nits={};players.forEach(p=>nits[p]=true);
+  const gid=uid();
+  dbSet(`nitGames/${gid}`,{id:gid,players,amount,affectsChips,active:true,nits,settled:false,loser:null,ts:Date.now()});
+  closeModal('nitOverlay');showToast('Nit game on!');
+}
+window.nitWonHand=function(gameId,pid){
+  const g=R.nitGames?.[gameId];if(!g||!g.active)return;
+  const nits={...g.nits,[pid]:false};
+  const remaining=Object.keys(nits).filter(k=>nits[k]);
+  if(remaining.length===1){
+    dbUpdate(`nitGames/${gameId}`,{nits,active:false,settled:true,loser:remaining[0]});
+    showToast(`${pname(remaining[0])} is the nit! 💸`);
+  }else{
+    dbUpdate(`nitGames/${gameId}`,{nits});
+  }
+}
+window.deleteNitGame=function(id){dbSet(`nitGames/${id}`,null);}
+function renderNitGames(){
+  const el=document.getElementById('nitGames');
+  const games=Object.values(R.nitGames||{}).sort((a,b)=>a.ts-b.ts);
+  if(!games.length){el.innerHTML='';return;}
+  el.innerHTML=games.map(g=>{
+    const nitsLeft=Object.keys(g.nits||{}).filter(k=>g.nits[k]);
+    return `<div class="game-card-body" style="border-top:1px solid rgba(155,127,212,0.15)">
+      <div style="display:flex;justify-content:space-between;margin-bottom:10px">
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <span class="tag tag-purple">$${g.amount}/player</span>
+          ${g.affectsChips?'<span class="tag tag-dim">chips</span>':'<span class="tag tag-dim">off-table</span>'}
+          ${g.settled?'<span class="tag tag-red">settled</span>':''}
+        </div>
+        ${canInteract()?`<button class="btn btn-xs btn-outline" onclick="deleteNitGame('${g.id}')">✕</button>`:''}
+      </div>
+      ${g.settled?
+        `<div style="font-size:13px;color:var(--text-dim)">💸 <strong style="color:var(--red-light)">${esc(pname(g.loser))}</strong> pays $${g.amount*((g.players||[]).length-1)} total</div>`
+        :
+        `<div class="label" style="margin-bottom:8px">Tap to record hand win:</div>
+        <div class="nit-players">
+          ${(g.players||[]).map(pid=>{
+            const hasNit=g.nits?.[pid];
+            return `<div class="nit-player" style="border-color:${hasNit?'rgba(224,84,68,0.3)':'rgba(76,175,130,0.3)'}">
+              <div class="nit-dot ${hasNit?'has':'clear'}"></div>
+              <span style="color:${hasNit?'var(--text)':'var(--text-dim)'}">${esc(pname(pid))}</span>
+              ${hasNit&&nitsLeft.length>1&&canInteract()?`<button class="btn btn-xs" style="background:rgba(76,175,130,0.15);border:1px solid rgba(76,175,130,0.3);color:var(--green);padding:3px 7px;margin-left:4px" onclick="nitWonHand('${g.id}','${pid}')">Won</button>`:''}
+            </div>`;
+          }).join('')}
+        </div>`}
+    </div>`;
+  }).join('');
+}
+
+// ── 2/7 ──────────────────────────────────────────────
+let lowSelPlayers={};
+window.openLowModal=function(){
+  lowSelPlayers={};const ap=activePlayers();
+  if(ap.length<2){showToast('Need 2+ active players');return;}
+  document.getElementById('lowAmount').value=5;document.getElementById('lowChipToggle').classList.remove('on');
+  document.getElementById('lowPlayerSel').innerHTML=ap.map(p=>`<button class="sel-chip" onclick="toggleLowPlayer('${p.id}',this)">${esc(p.name)}</button>`).join('');
+  document.getElementById('lowOverlay').style.display='flex';
+}
+window.toggleLowPlayer=function(id,el){lowSelPlayers[id]=!lowSelPlayers[id];el.classList.toggle('s-orange',!!lowSelPlayers[id]);}
+window.startLowGame=function(){
+  const players=Object.keys(lowSelPlayers).filter(k=>lowSelPlayers[k]);
+  if(players.length<2){showToast('Select 2+ players');return;}
+  const amount=parseFloat(document.getElementById('lowAmount').value)||5;
+  const affectsChips=isOn('lowChipToggle');
+  const gid=uid();
+  dbSet(`lowGames/${gid}`,{id:gid,players,amount,affectsChips,active:true,hits:{},settled:false,ts:Date.now()});
+  closeModal('lowOverlay');showToast('2/7 is live 🃏');
+}
+window.low27Hit=function(gameId,winnerId){
+  const g=R.lowGames?.[gameId];if(!g||!g.active)return;
+  const hid=uid();
+  dbSet(`lowGames/${gameId}/hits/${hid}`,{winner:winnerId,ts:Date.now()});
+  showToast(`${pname(winnerId)} hits 2/7! +$${g.amount*((g.players||[]).length-1)}`);
+}
+window.endLowGame=function(id){dbUpdate(`lowGames/${id}`,{active:false,settled:true});}
+window.deleteLowGame=function(id){dbSet(`lowGames/${id}`,null);}
+function renderLowGames(){
+  const el=document.getElementById('lowGames');
+  const games=Object.values(R.lowGames||{}).sort((a,b)=>a.ts-b.ts);
+  if(!games.length){el.innerHTML='';return;}
+  el.innerHTML=games.map(g=>{
+    const hits=Object.values(g.hits||{}).sort((a,b)=>a.ts-b.ts);
+    return `<div class="game-card-body" style="border-top:1px solid rgba(232,132,74,0.15)">
+      <div style="display:flex;justify-content:space-between;margin-bottom:10px">
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <span class="tag tag-orange">$${g.amount}/player</span>
+          ${g.affectsChips?'<span class="tag tag-dim">chips</span>':'<span class="tag tag-dim">off-table</span>'}
+          ${hits.length?`<span class="tag tag-gold">${hits.length} hit${hits.length>1?'s':''}</span>`:''}
+          ${!g.active?'<span class="tag tag-dim">ended</span>':''}
+        </div>
+        ${canInteract()?`<button class="btn btn-xs btn-outline" onclick="deleteLowGame('${g.id}')">✕</button>`:''}
+      </div>
+      ${hits.map((h,i)=>`<div style="font-size:12px;color:var(--text-dim);margin-bottom:3px">Hit ${i+1}: <strong style="color:var(--green)">${esc(pname(h.winner))}</strong> +$${g.amount*((g.players||[]).length-1)}</div>`).join('')}
+      ${g.active&&canInteract()?`
+        <div class="label" style="margin-bottom:8px;margin-top:${hits.length?'8px':'0'}">Who hit 2/7?</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+          ${(g.players||[]).map(pid=>`<button class="btn btn-xs btn-green" onclick="low27Hit('${g.id}','${pid}')">${esc(pname(pid))}</button>`).join('')}
+        </div>
+        <button class="btn btn-xs btn-outline" onclick="endLowGame('${g.id}')">End round</button>
+      `:`<div style="font-size:12px;color:var(--text-dim);margin-top:8px">Round ended</div>`}
+    </div>`;
+  }).join('');
+}
+
+// ── N64 ───────────────────────────────────────────────
+let n64SelGame='',n64SelSplit='winner-take-all',n64Teams={};
+window.selectN64Game=function(el,name){document.querySelectorAll('#n64GameSel .sel-chip').forEach(b=>b.classList.remove('s-blue'));el.classList.add('s-blue');n64SelGame=name;document.getElementById('n64GameCustom').value='';}
+window.selectSplit=function(el,val){document.querySelectorAll('#n64SplitSel .sel-chip').forEach(b=>b.classList.remove('s-gold'));el.classList.add('s-gold');n64SelSplit=val;}
+window.openN64Modal=function(){
+  n64SelGame='';n64SelSplit='winner-take-all';n64Teams={};
+  document.getElementById('n64Amount').value='';document.getElementById('n64TeamToggle').classList.remove('on');
+  document.getElementById('n64GameCustom').value='';
+  document.querySelectorAll('#n64GameSel .sel-chip').forEach(b=>b.classList.remove('s-blue'));
+  document.querySelectorAll('#n64SplitSel .sel-chip').forEach((b,i)=>{b.classList.remove('s-gold');if(i===0)b.classList.add('s-gold');});
+  renderN64PlayerSel();document.getElementById('n64Overlay').style.display='flex';
+}
+window.renderN64PlayerSel=function(){
+  const teamMode=isOn('n64TeamToggle');const ap=activePlayers();
+  document.getElementById('n64PlayerLabel').textContent=teamMode?'Assign teams (tap: none → A → B)':'Select players';
+  document.getElementById('n64PlayerSel').innerHTML=ap.map(p=>{
+    const t=n64Teams[p.id]||null;
+    const cls=!teamMode?(t?'s-blue':''):t==='A'?'s-gold':t==='B'?'s-green':'';
+    return `<button class="sel-chip ${cls}" onclick="cycleN64Team('${p.id}',this,${teamMode})">${esc(p.name)}${teamMode&&t?` (${t})`:''}</button>`;
+  }).join('');
+}
+window.cycleN64Team=function(id,el,teamMode){
+  if(!teamMode){n64Teams[id]=n64Teams[id]?null:'selected';el.classList.toggle('s-blue',!!n64Teams[id]);return;}
+  const cur=n64Teams[id]||null;n64Teams[id]=!cur?'A':cur==='A'?'B':null;renderN64PlayerSel();
+}
+window.startN64=function(){
+  const teamMode=isOn('n64TeamToggle');
+  const game=document.getElementById('n64GameCustom').value.trim()||n64SelGame;
+  if(!game){showToast('Pick a game');return;}
+  const amount=parseFloat(document.getElementById('n64Amount').value);
+  if(!amount||amount<=0){showToast('Enter stake');return;}
+  let players;
+  const ap=activePlayers();
+  if(teamMode){players=ap.filter(p=>n64Teams[p.id]==='A'||n64Teams[p.id]==='B').map(p=>p.id);}
+  else{players=ap.filter(p=>n64Teams[p.id]).map(p=>p.id);}
+  if(players.length<2){showToast('Select 2+ players');return;}
+  const teams=teamMode?{A:ap.filter(p=>n64Teams[p.id]==='A').map(p=>p.id),B:ap.filter(p=>n64Teams[p.id]==='B').map(p=>p.id)}:{};
+  const gid=uid();
+  dbSet(`n64Games/${gid}`,{id:gid,game,amount,split:n64SelSplit,teamMode,teams,players,settled:false,placements:[],ts:Date.now()});
+  closeModal('n64Overlay');showToast(`${game} match on! 🎮`);
+}
+function calcN64Splits(g){
+  const res={};if(!g.placements||!g.placements.length)return res;
+  if(g.teamMode){
+    const winTeam=g.placements[0];const loseTeam=winTeam==='A'?'B':'A';
+    const winners=(g.teams||{})[winTeam]||[];const losers=(g.teams||{})[loseTeam]||[];
+    const pot=losers.length*g.amount;
+    winners.forEach(p=>res[p]=pot/winners.length);losers.forEach(p=>res[p]=-g.amount);
+  }else{
+    const total=(g.players||[]).length*g.amount;
+    if(g.split==='winner-take-all'){
+      (g.players||[]).forEach(p=>res[p]=-g.amount);res[g.placements[0]]=total-g.amount;
+    }else{
+      const parts=g.split.split('-').map(Number);
+      (g.players||[]).forEach((p,i)=>{res[p]=total*(parts[i]||0)/100-g.amount;});
+    }
+  }
+  return res;
+}
+window.setN64Placement=function(gameId,pid,place){
+  const g=R.n64Games?.[gameId];if(!g)return;
+  let placements=[...(g.placements||[])].filter(p=>p!==pid);
+  placements.splice(place-1,0,pid);
+  const settled=placements.length===(g.players||[]).length;
+  dbUpdate(`n64Games/${gameId}`,{placements,settled});
+  if(settled)showToast('Match settled 🎮');
+}
+window.deleteN64Game=function(id){dbSet(`n64Games/${id}`,null);}
+function renderN64Games(){
+  const el=document.getElementById('n64Games');
+  const games=Object.values(R.n64Games||{}).sort((a,b)=>a.ts-b.ts);
+  if(!games.length){el.innerHTML='';return;}
+  el.innerHTML=games.map(g=>{
+    let body;
+    if(g.settled){
+      const splits=calcN64Splits(g);
+      body=Object.entries(splits).map(([pid,delta])=>{
+        const s=delta>=0?`+$${delta.toFixed(0)}`:`-$${Math.abs(delta).toFixed(0)}`;
+        return `<div style="font-size:12px;color:var(--text-dim);margin-bottom:3px"><strong style="color:var(--text)">${esc(pname(pid))}</strong> <span style="color:${delta>=0?'var(--green)':'var(--red-light)'};font-family:'DM Mono',monospace">${s}</span></div>`;
+      }).join('');
+    }else if(g.teamMode&&canInteract()){
+      body=`<div class="label" style="margin-bottom:8px">Which team won?</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-sm btn-gold" style="flex:1" onclick="setN64Placement('${g.id}','A',1)">Team A</button>
+          <button class="btn btn-sm btn-outline" style="flex:1;color:var(--green);border-color:rgba(76,175,130,0.3)" onclick="setN64Placement('${g.id}','B',1)">Team B</button>
+        </div>
+        <div style="margin-top:10px;font-size:11px;color:var(--text-dim)">A: ${(g.teams?.A||[]).map(p=>esc(pname(p))).join(', ')}<br>B: ${(g.teams?.B||[]).map(p=>esc(pname(p))).join(', ')}</div>`;
+    }else if(!g.settled&&canInteract()){
+      body=`<div class="label" style="margin-bottom:8px">Set placements:</div>
+        ${(g.players||[]).map(pid=>{
+          const place=(g.placements||[]).indexOf(pid)+1;
+          return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">
+            <span style="font-size:13px;min-width:80px">${esc(pname(pid))}</span>
+            <div style="display:flex;gap:4px">${[1,2,3].slice(0,(g.players||[]).length).map(n=>`<button class="btn btn-xs ${place===n?'btn-gold':'btn-outline'}" onclick="setN64Placement('${g.id}','${pid}',${n})">${n===1?'🥇':n===2?'🥈':'🥉'}</button>`).join('')}</div>
+          </div>`;
+        }).join('')}`;
+    }else{body='<div style="font-size:12px;color:var(--text-dim)">Awaiting settlement</div>';}
+    return `<div class="game-card-body" style="border-top:1px solid rgba(111,163,216,0.15)">
+      <div style="display:flex;justify-content:space-between;margin-bottom:10px">
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <span class="tag tag-blue">${esc(g.game)}</span><span class="tag tag-dim">$${g.amount}/player</span>
+          ${g.teamMode?'<span class="tag tag-dim">teams</span>':''}
+          ${g.settled?'<span class="tag tag-green">settled</span>':''}
+        </div>
+        ${canInteract()?`<button class="btn btn-xs btn-outline" onclick="deleteN64Game('${g.id}')">✕</button>`:''}
+      </div>${body}
+    </div>`;
+  }).join('');
+}
+
+// ── RACES ─────────────────────────────────────────────
+let raceSelRunners={};
+window.openRaceModal=function(){
+  raceSelRunners={};const ap=activePlayers();
+  if(ap.length<2){showToast('Need 2+ active players');return;}
+  document.getElementById('raceAmount').value='';document.getElementById('raceOddsN').value=1;document.getElementById('raceOddsD').value=1;
+  document.getElementById('racePlayerSel').innerHTML=ap.map(p=>`<button class="sel-chip" onclick="toggleRaceRunner('${p.id}',this)">${esc(p.name)}</button>`).join('');
+  document.getElementById('raceOverlay').style.display='flex';
+}
+window.toggleRaceRunner=function(id,el){raceSelRunners[id]=!raceSelRunners[id];el.classList.toggle('s-green',!!raceSelRunners[id]);}
+window.startRace=function(){
+  const runners=Object.keys(raceSelRunners).filter(k=>raceSelRunners[k]);
+  if(runners.length<2){showToast('Select 2+ runners');return;}
+  const amount=parseFloat(document.getElementById('raceAmount').value);
+  if(!amount||amount<=0){showToast('Enter stake');return;}
+  const oddsN=parseFloat(document.getElementById('raceOddsN').value)||1;
+  const oddsD=parseFloat(document.getElementById('raceOddsD').value)||1;
+  const gid=uid();
+  dbSet(`raceGames/${gid}`,{id:gid,amount,oddsN,oddsD,runners,settled:false,winner:null,ts:Date.now()});
+  closeModal('raceOverlay');showToast('On your marks 🏃');
+}
+window.settleRace=function(id,winnerId){
+  const g=R.raceGames?.[id];if(!g)return;
+  dbUpdate(`raceGames/${id}`,{settled:true,winner:winnerId});
+  const losers=(g.runners||[]).filter(r=>r!==winnerId);
+  showToast(`${pname(winnerId)} wins $${(losers.length*g.amount*g.oddsN/g.oddsD).toFixed(2)}! 🏆`);
+}
+window.deleteRaceGame=function(id){dbSet(`raceGames/${id}`,null);}
+function renderRaceGames(){
+  const el=document.getElementById('raceGames');
+  const games=Object.values(R.raceGames||{}).sort((a,b)=>a.ts-b.ts);
+  if(!games.length){el.innerHTML='';return;}
+  el.innerHTML=games.map(g=>{
+    return `<div class="game-card-body" style="border-top:1px solid rgba(76,175,130,0.15)">
+      <div style="display:flex;justify-content:space-between;margin-bottom:10px">
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <span class="tag tag-green">$${g.amount} @ ${g.oddsN}:${g.oddsD}</span>
+          ${g.settled?'<span class="tag tag-green">settled</span>':''}
+        </div>
+        ${canInteract()?`<button class="btn btn-xs btn-outline" onclick="deleteRaceGame('${g.id}')">✕</button>`:''}
+      </div>
+      ${g.settled?
+        `<div style="font-size:13px;color:var(--text-dim)">🏆 <strong style="color:var(--green)">${esc(pname(g.winner))}</strong> wins $${((g.runners||[]).filter(r=>r!==g.winner).length*g.amount*g.oddsN/g.oddsD).toFixed(2)}</div>`
+        :canInteract()?
+        `<div class="label" style="margin-bottom:8px">Who crossed first?</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          ${(g.runners||[]).map(pid=>`<button class="btn btn-sm btn-green" onclick="settleRace('${g.id}','${pid}')">${esc(pname(pid))}</button>`).join('')}
+        </div>`
+        :'<div style="font-size:12px;color:var(--text-dim)">Awaiting result</div>'
+      }
+    </div>`;
+  }).join('');
+}
+
+// ── SETTLE ────────────────────────────────────────────
+function renderSettle(){
+  const ap=activePlayers();
+  const bets=Object.values(R.bets||{});
+  const totalBuyIns=Object.values(R.players||{}).reduce((s,p)=>s+(p.buyIns||0),0);
+  document.getElementById('settleStats').innerHTML=`
+    <div class="stat-card"><div class="stat-val">${bets.length}</div><div class="stat-lbl">Side Bets</div></div>
+    <div class="stat-card"><div class="stat-val">${bets.filter(b=>b.settled).length}/${bets.length}</div><div class="stat-lbl">Settled</div></div>
+    <div class="stat-card"><div class="stat-val">${totalBuyIns}</div><div class="stat-lbl">Buy-ins</div></div>
+    <div class="stat-card"><div class="stat-val">$${totalBuyIns*(R.buyIn||25)}</div><div class="stat-lbl">Poker Pool</div></div>`;
+  if(!ap.length){document.getElementById('settleBalances').innerHTML='<div class="card-body" style="color:var(--text-dim);font-size:13px">No active players.</div>';document.getElementById('settleTransfers').innerHTML='';return;}
+  const bals={};ap.forEach(p=>bals[p.id]=getPlayerCombinedBal(p.id));
+  document.getElementById('settleBalances').innerHTML=`<div class="card-body">
+    <div class="label" style="margin-bottom:12px">Combined Balances (poker + sides)</div>
+    ${ap.sort((a,b)=>bals[b.id]-bals[a.id]).map(p=>{
+      const bal=bals[p.id];const cls=bal>0?'val-pos':bal<0?'val-neg':'val-zero';
+      const str=bal>0?`+$${bal}`:bal<0?`-$${Math.abs(bal)}`:'$0';
+      return `<div class="settle-row"><div class="settle-name"><div class="settle-avatar">${p.name[0].toUpperCase()}</div>${esc(p.name)}</div><div class="settle-val ${cls}">${str}</div></div>`;
+    }).join('')}
+  </div>`;
+  const payers=ap.filter(p=>bals[p.id]<0).map(p=>({id:p.id,name:p.name,amt:-bals[p.id]}));
+  const receivers=ap.filter(p=>bals[p.id]>0).map(p=>({id:p.id,name:p.name,amt:bals[p.id]}));
+  const txns=[];let pi=0,ri=0;
+  while(pi<payers.length&&ri<receivers.length){
+    const pay=payers[pi],rec=receivers[ri];const amt=Math.min(pay.amt,rec.amt);
+    if(amt>0.01)txns.push({from:pay.name,to:rec.name,amt:Math.round(amt*100)/100});
+    pay.amt-=amt;rec.amt-=amt;if(pay.amt<0.01)pi++;if(rec.amt<0.01)ri++;
+  }
+  const tf=document.getElementById('settleTransfers');
+  tf.innerHTML=txns.length?txns.map(t=>`<div class="transfer-row"><div style="font-size:13px"><span style="color:var(--red-light)">${esc(t.from)}</span> <span style="color:var(--text-muted)">→</span> <span style="color:var(--gold);font-weight:600">${esc(t.to)}</span></div><div class="mono val-pos">$${t.amt}</div></div>`).join('')
+    :'<div style="font-size:13px;color:var(--text-dim)">All square — no transfers needed.</div>';
+}
+
+// ── HISTORY ───────────────────────────────────────────
+function renderHistory(){
+  const el=document.getElementById('historyList');const empty=document.getElementById('historyEmpty');
+  const nights=Object.values(R.history||{}).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  if(!nights.length){el.innerHTML='';empty.style.display='block';return;}
+  empty.style.display='none';
+  el.innerHTML=nights.map((night,i)=>{
+    const totalBI=Object.values(night.players||{}).reduce((s,p)=>s+(p.buyIns||0),0);
+    const bets=Object.keys(night.bets||{}).length;
+    return `<div class="hist-card">
+      <div class="mono" style="font-size:13px;color:var(--gold);margin-bottom:4px">${esc(night.nightName)}</div>
+      <div style="font-size:12px;color:var(--text-dim)">${Object.keys(night.players||{}).length} players · ${bets} bets · $${totalBI*(night.buyIn||25)} pool</div>
+    </div>`;
+  }).join('');
+}
+
+// ── DRINKS ────────────────────────────────────────────
+const MENU = ['Old Fashioned','Manhattan','Gin & Tonic','Southside Sour'];
+
+window.orderDrink = function(drink){ placeOrder(drink, ''); }
+window.orderCustomDrink = function(){
+  const inp = document.getElementById('drinkCustomInput');
+  const val = inp.value.trim(); if(!val){showToast('Enter a drink or note');return;}
+  // Check if it matches a preset
+  const matched = MENU.find(m=>m.toLowerCase()===val.toLowerCase());
+  placeOrder(matched||'Custom', matched?'':val);
+  inp.value='';
+}
+
+function placeOrder(drink, note){
+  if(!SESSION.playerId){showToast('Join the game to order');return;}
+  const pid = SESSION.playerId;
+  dbSet(`drinks/${pid}`,{
+    playerId:pid, playerName:SESSION.playerName||pname(pid),
+    drink, note, filled:false, ts:Date.now()
+  });
+  showToast(`${drink} ordered 🍹`);
+}
+
+window.markFilled = function(pid){
+  if(!isHost())return;
+  dbUpdate(`drinks/${pid}`,{filled:true, filledAt:Date.now()});
+  showToast('Order filled ✓');
+}
+window.clearOrder = function(pid){
+  if(!isHost())return;
+  dbSet(`drinks/${pid}`, null);
+}
+window.clearAllDrinks = function(){
+  if(!isHost())return;
+  dbSet('drinks', null);
+  showToast('All orders cleared');
+}
+
+function renderDrinks(){
+  const orders = Object.values(R.drinks||{}).sort((a,b)=>a.ts-b.ts);
+  const myOrder = SESSION.playerId ? (R.drinks||{})[SESSION.playerId] : null;
+
+  // My current order display
+  const myEl = document.getElementById('myCurrentOrder');
+  if(myOrder && !myOrder.filled){
+    myEl.innerHTML=`<span style="color:var(--blue);font-weight:600">${esc(myOrder.drink)}</span>${myOrder.note?` <span style="color:var(--text-dim)">· ${esc(myOrder.note)}</span>`:''}`;
+  } else if(myOrder && myOrder.filled){
+    myEl.innerHTML=`<span style="color:var(--green)">✓ ${esc(myOrder.drink)} — filled!</span>`;
+  } else {
+    myEl.textContent='No current order';
+  }
+
+  // Hide order card for spectators
+  document.getElementById('myOrderCard').style.display = SESSION.role==='spectator'?'none':'block';
+
+  // Queue
+  const queue = document.getElementById('drinksQueue');
+  const empty = document.getElementById('drinksEmpty');
+  const pending = orders.filter(o=>!o.filled);
+  const filled = orders.filter(o=>o.filled);
+  const all = [...pending,...filled];
+
+  if(!all.length){queue.innerHTML='';empty.style.display='block';return;}
+  empty.style.display='none';
+
+  // Pending badge on tab
+  const tab=document.getElementById('t-drinks');
+  tab.innerHTML=`🍹 Drinks${pending.length?`<span class="nav-badge">${pending.length}</span>`:''}`;
+
+  queue.innerHTML=all.map(o=>{
+    const timeStr=new Date(o.ts).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
+    return `<div class="drink-order-card ${o.filled?'filled':''}">
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">
+          <div class="settle-avatar" style="width:24px;height:24px;font-size:10px">${(o.playerName||'?')[0].toUpperCase()}</div>
+          <span class="drink-order-name">${esc(o.playerName||'?')}</span>
+          ${o.filled?'<span class="tag tag-green" style="margin-left:auto">filled</span>':''}
+        </div>
+        <div class="drink-order-item">${esc(o.drink)}${o.note?` <span style="color:var(--text-dim);font-weight:400">· ${esc(o.note)}</span>`:''}</div>
+        <div class="drink-order-ts">${timeStr}</div>
+      </div>
+      ${isHost()&&!o.filled?`<div style="display:flex;flex-direction:column;gap:6px">
+        <button class="btn btn-green btn-xs" onclick="markFilled('${o.playerId}')">✓ Fill</button>
+        <button class="btn btn-outline btn-xs" onclick="clearOrder('${o.playerId}')">✕</button>
+      </div>`:''}
+      ${isHost()&&o.filled?`<button class="btn btn-outline btn-xs" onclick="clearOrder('${o.playerId}')">✕</button>`:''}
+    </div>`;
+  }).join('');
+}
+
+// ── HOT DOG O'CLOCK ───────────────────────────────────
+let hdInterval=null,hdAudioCtx=null,hdDogCount=1;
+
+window.hdOverlayClick=function(e){
+  // Only close if clicking the background, not the order card or tally
+  if(e.target===document.getElementById('hotdogOverlay')||e.target.closest('#sirenBar')||e.target.closest('#hotdogRain')){
+    closeHotDogOClock();
+  }
+}
+
+window.triggerHotDogOClock=function(){
+  document.getElementById('hotdogOverlay').style.display='block';
+  spawnHotDogs();startSiren();playHotDogSound();
+  hdDogCount=1;
+  // Clear previous orders
+  dbSet('hotdogOrders',null);
+  dbSet('hotdogActive',true);
+  if(isHost()){
+    dbSet('hotdogOClock',Date.now());
+    document.getElementById('hdHostTally').style.display='block';
+    document.getElementById('hdOrderPrompt').style.display='none';
+    renderHdTally();
+  }
+  showHdBanner();
+}
+window.closeHotDogOClock=function(){
+  document.getElementById('hotdogOverlay').style.display='none';
+  document.getElementById('hotdogRain').innerHTML='';
+  document.getElementById('sirenBar').innerHTML='';
+  document.getElementById('hdHostTally').style.display='none';
+  document.getElementById('hdOrderPrompt').style.display='none';
+  document.getElementById('hdOrderConfirm').style.display='none';
+  if(hdInterval){clearInterval(hdInterval);hdInterval=null;}
+  if(hdAudioCtx){try{hdAudioCtx.close();}catch(e){}hdAudioCtx=null;}
+  // Keep banner up so anyone can reopen
+}
+window.reopenHotDogOverlay=function(){
+  document.getElementById('hotdogOverlay').style.display='block';
+  // No siren/sound on reopen — just show the UI
+  if(isHost()){
+    document.getElementById('hdHostTally').style.display='block';
+    renderHdTally();
+  } else {
+    const myOrder=(R.hotdogOrders||{})[SESSION.playerId];
+    if(myOrder){
+      // Already ordered — just show confirmation
+      document.getElementById('hdSubmitBtn').style.display='none';
+      document.getElementById('hdOrderConfirm').style.display='block';
+      document.getElementById('hdOrderConfirm').textContent=myOrder.count===0?'✓ No dogs for you!':'✓ '+myOrder.count+' dog'+(myOrder.count>1?'s':'')+' ordered!';
+    } else {
+      document.getElementById('hdOrderPrompt').style.display='block';
+      document.getElementById('hdOrderConfirm').style.display='none';
+      document.getElementById('hdSubmitBtn').style.display='block';
+    }
+    document.getElementById('hdDogCount').textContent=hdDogCount;
+  }
+}
+function showHdBanner(){
+  const banner=document.getElementById('hdReopenBanner');
+  banner.style.display='flex';
+}
+function hideHdBanner(){
+  document.getElementById('hdReopenBanner').style.display='none';
+}
+function updateHdBannerSub(){
+  const orders=Object.values(R.hotdogOrders||{});
+  const total=orders.reduce((s,o)=>s+o.count,0);
+  const sub=document.getElementById('hdReopenSub');
+  if(sub) sub.textContent=orders.length?`${orders.length} order${orders.length>1?'s':''} · ${total} 🌭 total`:'Tap to view orders';
+}
+
+// Players see order prompt when host triggers
+onValue(ref(db,`rooms/${SESSION.roomCode}/hotdogOClock`),snap=>{
+  if(!snap.val())return;
+  if(!isHost()){
+    document.getElementById('hotdogOverlay').style.display='block';
+    spawnHotDogs();startSiren();playHotDogSound();
+    hdDogCount=1;
+    document.getElementById('hdDogCount').textContent='1';
+    document.getElementById('hdOrderPrompt').style.display='block';
+    document.getElementById('hdOrderConfirm').style.display='none';
+    document.getElementById('hdSubmitBtn').style.display='block';
+    showHdBanner();
+  }
+});
+
+// Host sees tally update live; everyone's banner sub updates
+onValue(ref(db,`rooms/${SESSION.roomCode}/hotdogOrders`),snap=>{
+  R.hotdogOrders=snap.val()||{};
+  if(isHost()&&document.getElementById('hotdogOverlay').style.display==='block') renderHdTally();
+  updateHdBannerSub();
+});
+
+window.hdAdjust=function(delta){
+  hdDogCount=Math.max(0,hdDogCount+delta);
+  document.getElementById('hdDogCount').textContent=hdDogCount;
+}
+window.submitHdOrder=function(){
+  if(!SESSION.playerId)return;
+  dbSet(`hotdogOrders/${SESSION.playerId}`,{
+    name:SESSION.playerName||pname(SESSION.playerId),
+    count:hdDogCount,
+    ts:Date.now()
+  });
+  document.getElementById('hdSubmitBtn').style.display='none';
+  document.getElementById('hdOrderConfirm').style.display='block';
+  document.getElementById('hdOrderConfirm').textContent=hdDogCount===0?'✓ No dogs for you!':'✓ '+hdDogCount+' dog'+(hdDogCount>1?'s':'')+' ordered!';
+}
+
+function renderHdTally(){
+  const orders=Object.values((R.hotdogOrders||{})).sort((a,b)=>a.ts-b.ts);
+  const total=orders.reduce((s,o)=>s+o.count,0);
+  document.getElementById('hdTallyTotal').textContent=`${total} 🌭`;
+  document.getElementById('hdTallyRows').innerHTML=orders.length
+    ? orders.map(o=>`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">
+        <span style="font-family:'DM Sans',sans-serif;font-size:13px;color:rgba(255,255,255,0.8)">${esc(o.name)}</span>
+        <span style="font-family:'Playfair Display',serif;font-size:18px;color:#ffcc00;font-weight:700">${o.count} 🌭</span>
+      </div>`).join('')
+    : '<div style="font-size:12px;color:rgba(255,255,255,0.4);text-align:center">Waiting for orders…</div>';
+}
+
+
+function spawnHotDogs(){
+  const rain=document.getElementById('hotdogRain');rain.innerHTML='';
+  const dogs=['🌭','🌭','🌭','🌭','🌭','🌭','🌭','🌭','🔥','🌭','🌭','🌭','🌭','🌭','🌭','🌭','🌭','🌭','🌭','🌭'];
+  for(let i=0;i<28;i++)createDog(rain,dogs,i*120);
+  hdInterval=setInterval(()=>{
+    if(document.getElementById('hotdogOverlay').style.display==='none'){clearInterval(hdInterval);return;}
+    createDog(rain,dogs,0);
+    const kids=[...rain.children];if(kids.length>60)kids.slice(0,10).forEach(k=>k.remove());
+  },300);
+}
+function createDog(rain,dogs,delay){
+  const el=document.createElement('div');
+  const emoji=dogs[Math.floor(Math.random()*dogs.length)];
+  const x=Math.random()*100,size=24+Math.random()*40,dur=2.5+Math.random()*3;
+  const rotStart=(Math.random()-0.5)*60,rotEnd=rotStart+(Math.random()-0.5)*180;
+  el.style.cssText=`position:absolute;left:${x}%;top:0;font-size:${size}px;animation:hdFall ${dur}s linear ${delay}ms forwards;--rs:${rotStart}deg;--re:${rotEnd}deg;pointer-events:none;user-select:none`;
+  el.textContent=emoji;rain.appendChild(el);
+  setTimeout(()=>{try{el.remove();}catch(e){}},delay+(dur*1000)+200);
+}
+function startSiren(){
+  const bar=document.getElementById('sirenBar');bar.innerHTML='';
+  const r=document.createElement('div');r.style.cssText='position:absolute;inset:0;background:rgba(255,30,30,0.25);animation:hdSiren 0.4s ease-in-out infinite';
+  const b=document.createElement('div');b.style.cssText='position:absolute;inset:0;background:rgba(30,80,255,0.2);animation:hdSiren 0.4s ease-in-out infinite 0.2s';
+  bar.appendChild(r);bar.appendChild(b);
+}
+function playHotDogSound(){
+  try{
+    hdAudioCtx=new(window.AudioContext||window.webkitAudioContext)();const ctx=hdAudioCtx;
+    function airHornBlast(startTime,duration){
+      const freqs=[233,311,370,466];
+      freqs.forEach((freq,i)=>{
+        const osc=ctx.createOscillator(),gain=ctx.createGain(),dist=ctx.createWaveShaper();
+        const curve=new Float32Array(256);
+        for(let j=0;j<256;j++){const x=j*2/256-1;curve[j]=x*(Math.abs(x)+0.3)/(x*x+0.3+1);}
+        dist.curve=curve;osc.connect(dist);dist.connect(gain);gain.connect(ctx.destination);
+        osc.type='sawtooth';osc.frequency.value=freq+(i*1.5);
+        gain.gain.setValueAtTime(0,startTime);gain.gain.linearRampToValueAtTime(0.18,startTime+0.015);
+        gain.gain.setValueAtTime(0.18,startTime+duration-0.05);gain.gain.exponentialRampToValueAtTime(0.001,startTime+duration);
+        osc.start(startTime);osc.stop(startTime+duration+0.05);
+      });
+    }
+    airHornBlast(ctx.currentTime,1.4);airHornBlast(ctx.currentTime+1.6,0.5);airHornBlast(ctx.currentTime+2.25,0.5);
+  }catch(e){}
+}
+
+// ── N64 CSS VAR FIX ──────────────────────────────────
+// hdFall uses CSS custom properties --rs/--re set inline
+</script>
+</body>
+</html>
