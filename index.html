@@ -52,6 +52,7 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
 .role-badge{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:1px;padding:3px 8px;border-radius:10px;text-transform:uppercase}
 .role-host{background:rgba(201,168,76,0.15);color:var(--gold);border:1px solid rgba(201,168,76,0.3)}
 .role-player{background:rgba(76,175,130,0.12);color:var(--green);border:1px solid rgba(76,175,130,0.25)}
+.role-banker{background:rgba(111,163,216,0.15);color:var(--blue);border:1px solid rgba(111,163,216,0.3)}
 .role-spectator{background:var(--surface);color:var(--text-dim);border:1px solid var(--border-dim)}
 
 /* ── Nav ── */
@@ -426,6 +427,7 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
         <button class="btn btn-outline btn-sm host-only" style="flex:1;border-color:rgba(76,175,130,0.3);color:var(--green)" onclick="tipDealer()">Tip the Dealer</button>
       </div>
       <div class="player-grid" id="playerGrid"></div>
+      <div id="buyInRequestBanner" style="display:none;background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.25);border-radius:10px;padding:12px 14px;margin-bottom:12px"></div>
       <div class="row host-only" style="margin-bottom:8px">
         <input class="field" id="newPlayerInput" placeholder="Add player manually…" maxlength="18" onkeydown="if(event.key==='Enter')addPlayerManual()">
         <button class="btn btn-gold" onclick="addPlayerManual()">Add</button>
@@ -910,7 +912,9 @@ function showToast(msg){ const t=document.getElementById('toast'); t.textContent
 function pname(id){ return R.players?.[id]?.name || '?' }
 function activePlayers(){ return Object.values(R.players||{}).filter(p=>p.active) }
 function isHost(){ return SESSION.role==='host' }
-function canInteract(){ return SESSION.role==='host'||SESSION.role==='player' }
+function isBanker(){ return SESSION.role==='banker' || SESSION.role==='host' }
+function canManageBuyIns(){ return SESSION.role==='host' || SESSION.role==='banker' }
+function canInteract(){ return SESSION.role==='host'||SESSION.role==='player'||SESSION.role==='banker' }
 
 // expose globally for onclick handlers
 window.closeModal=closeModal; window.setAmt=setAmt; window.setOdds=setOdds; window.toggleEl=toggleEl;
@@ -943,11 +947,20 @@ window.joinAsPlayer = async function(){
   const name = document.getElementById('joinName').value.trim();
   if(!name){ document.getElementById('joinErr2').textContent='Enter your name'; return; }
   document.getElementById('joinErr2').textContent='Joining…';
+
+  // Check for duplicate name in room
+  const snap = await db.ref(`rooms/${SESSION.roomCode}/players`).once('value');
+  const existing = Object.values(snap.val()||{});
+  const duplicate = existing.find(p=>p.name.toLowerCase()===name.toLowerCase());
+  if(duplicate){
+    document.getElementById('joinErr2').textContent=`"${name}" is already taken — try a last initial or nickname`;
+    return;
+  }
+
   const pid = uid();
   SESSION.playerId = pid;
   SESSION.playerName = name;
   SESSION.role = 'player';
-  // Add player to room
   await db.ref(`rooms/${SESSION.roomCode}/players/${pid}`).set({
     id:pid, name, active:true, buyIns:0, chipTotal:null, cashedOut:false, isHost:false, joinedAt:Date.now()
   });
@@ -1109,7 +1122,20 @@ function enterApp(){
     R = snap.val();
     R.players = R.players||{}; R.bets = R.bets||{}; R.nitGames = R.nitGames||{};
     R.lowGames = R.lowGames||{}; R.n64Games = R.n64Games||{}; R.raceGames = R.raceGames||{};
-    R.drinks = R.drinks||{}; R.hotdogOrders = R.hotdogOrders||{}; R.history = R.history||{};
+    R.drinks = R.drinks||{}; R.hotdogOrders = R.hotdogOrders||{}; R.buyInRequests = R.buyInRequests||{}; R.history = R.history||{};
+    // Sync banker role to SESSION if my player record was updated
+    if(SESSION.playerId&&R.players[SESSION.playerId]){
+      const me=R.players[SESSION.playerId];
+      if(me.isBanker&&SESSION.role==='player'){
+        SESSION.role='banker';
+        const rb=document.getElementById('roleBadge');
+        rb.textContent='banker';rb.className='role-badge role-banker';
+      }else if(!me.isBanker&&SESSION.role==='banker'){
+        SESSION.role='player';
+        const rb=document.getElementById('roleBadge');
+        rb.textContent='player';rb.className='role-badge role-player';
+      }
+    }
     document.getElementById('buyInAmt').textContent = R.buyIn||25;
     renderAll();
   }, err => {
@@ -1226,9 +1252,9 @@ window.saveBuyIn = function(){
 window.addPlayerManual = function(){
   const inp=document.getElementById('newPlayerInput');
   const name=inp.value.trim(); if(!name)return;
-  if(Object.values(R.players||{}).find(p=>p.name.toLowerCase()===name.toLowerCase())){showToast('Name taken');return;}
+  if(Object.values(R.players||{}).find(p=>p.name.toLowerCase()===name.toLowerCase())){showToast(`"${name}" is already in the game`);return;}
   const pid=uid();
-  dbSet(`players/${pid}`,{id:pid,name,active:true,buyIns:0,chipTotal:null,cashedOut:false,isHost:false,joinedAt:Date.now()});
+  dbSet(`players/${pid}`,{id:pid,name,active:true,buyIns:0,chipTotal:null,cashedOut:false,isBanker:false,isHost:false,joinedAt:Date.now()});
   inp.value='';
 }
 window.toggleActive = function(id){
@@ -1241,8 +1267,15 @@ window.removePlayer = function(id){
 }
 
 let pendingBuyInId=null;
-window.openPlayerBuyIn = function(id){
+window.toggleBanker = function(pid){
   if(!isHost())return;
+  const p=R.players[pid];if(!p)return;
+  dbUpdate(`players/${pid}`,{isBanker:!p.isBanker});
+  showToast(p.isBanker?`${p.name} removed as Banker`:`${p.name} is now Banker 💰`);
+}
+
+window.openPlayerBuyIn = function(id){
+  if(!canManageBuyIns())return;
   const p=R.players[id];if(!p)return;
   pendingBuyInId=id;
   document.getElementById('playerBuyInTitle').textContent=p.name;
@@ -1255,6 +1288,25 @@ window.recordBuyIn = function(){
   dbUpdate(`players/${pendingBuyInId}`,{buyIns:(p.buyIns||0)+1});
   showToast(`+$${R.buyIn||25} buy-in for ${p.name}`);
   closeModal('playerBuyInOverlay');
+}
+
+window.requestBuyIn = function(pid){
+  const rid=uid();
+  dbSet(`buyInRequests/${rid}`,{id:rid,playerId:pid,confirmed:false,ts:Date.now()});
+  showToast('Buy-in requested 🙋');
+}
+window.confirmBuyInRequest = function(rid){
+  if(!canManageBuyIns())return;
+  const req=R.buyInRequests?.[rid];if(!req)return;
+  const p=R.players[req.playerId];if(!p)return;
+  dbUpdate(`players/${req.playerId}`,{buyIns:(p.buyIns||0)+1});
+  dbSet(`buyInRequests/${rid}`,null);
+  showToast(`Buy-in confirmed for ${p.name} ✓`);
+}
+window.denyBuyInRequest = function(rid){
+  if(!canManageBuyIns())return;
+  dbSet(`buyInRequests/${rid}`,null);
+  showToast('Request denied');
 }
 
 window.dealEveryoneIn = function(){
@@ -1333,6 +1385,26 @@ function renderPlayers(){
   const players=Object.values(R.players||{}).sort((a,b)=>a.joinedAt-b.joinedAt);
   if(!players.length){grid.innerHTML='<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">No players yet.</div></div>';return;}
   const buyIn=R.buyIn||25;
+  const pendingRequests=Object.values(R.buyInRequests||{}).filter(r=>!r.confirmed);
+
+  // Show pending request banner if host/banker
+  const reqBanner=document.getElementById('buyInRequestBanner');
+  if(reqBanner){
+    if(canManageBuyIns()&&pendingRequests.length){
+      reqBanner.style.display='block';
+      reqBanner.innerHTML=`<div style="font-size:11px;font-weight:700;color:var(--gold);margin-bottom:8px">🙋 Buy-In Requests (${pendingRequests.length})</div>`+
+        pendingRequests.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <span style="font-size:13px">${esc(pname(r.playerId))}</span>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-green btn-xs" onclick="confirmBuyInRequest('${r.id}')">✓ Confirm</button>
+            <button class="btn btn-outline btn-xs" onclick="denyBuyInRequest('${r.id}')">✕</button>
+          </div>
+        </div>`).join('');
+    }else{
+      reqBanner.style.display='none';
+    }
+  }
+
   grid.innerHTML=players.map(p=>{
     const bal=getPlayerSideBal(p.id);
     const cls=bal>0?'pos':bal<0?'neg':'';
@@ -1342,24 +1414,48 @@ function renderPlayers(){
     const chipNet=getPlayerChipNet(p.id);
     const chipStr=p.cashedOut?`Cashed $${p.chipTotal} (${chipNet>=0?'+':''}$${chipNet})`:p.chipTotal!=null?`Chips $${p.chipTotal} (${chipNet>=0?'+':''}$${chipNet}) prelim`:'';
     const isMine=p.id===SESSION.playerId;
-    const canEdit=isHost();
+    const isBankerPlayer=p.isBanker&&!p.isHost;
+    const myPendingReq=Object.values(R.buyInRequests||{}).find(r=>r.playerId===p.id&&!r.confirmed);
+
+    // Role badge text
+    const roleBadge=p.isHost?'<span style="font-size:9px;color:var(--gold);font-family:DM Mono,monospace"> HOST</span>':
+      p.isBanker?'<span style="font-size:9px;color:var(--blue);font-family:DM Mono,monospace"> BANK</span>':'';
+
+    // Bottom action bar — what shows depends on role
+    let actionBar='';
+    if(canManageBuyIns()){
+      // Host or banker: full buy-in and cash-out controls
+      actionBar=`<div style="display:flex;border-top:1px solid var(--border-dim)">
+        <button class="p-buyin-btn" style="flex:1;border-right:1px solid var(--border-dim);border-top:none" onclick="openPlayerBuyIn('${p.id}')">＋ Buy In · $${buyIn}</button>
+        <button class="p-buyin-btn" style="flex:1;border-top:none;color:${p.cashedOut?'var(--green)':'var(--text-dim)'}" onclick="openCashOut('${p.id}')">${p.cashedOut?'✓ Cashed':'Cash Out'}</button>
+      </div>`;
+    }else if(isMine&&SESSION.role==='player'){
+      // My own card as a player — request buy-in button
+      if(myPendingReq){
+        actionBar=`<div style="border-top:1px solid var(--border-dim);padding:8px;text-align:center;font-size:11px;color:var(--text-dim)">⏳ Buy-in requested…</div>`;
+      }else{
+        actionBar=`<div style="border-top:1px solid var(--border-dim)">
+          <button class="p-buyin-btn" style="border-top:none;color:var(--blue)" onclick="requestBuyIn('${p.id}')">🙋 Request Buy-In</button>
+        </div>`;
+      }
+    }
+
     return `<div class="player-chip ${p.active?'active':''} ${p.cashedOut?'cashed-out':''}">
-      ${canEdit?`<button class="p-remove" onclick="removePlayer('${p.id}')">✕</button>`:''}
-      <div class="p-top" onclick="${canEdit?`toggleActive('${p.id}')`:''}">
-        <div class="p-avatar">${p.name[0].toUpperCase()}${p.isHost?'<span style="position:absolute;top:-2px;right:-2px;font-size:8px">👑</span>':''}${isMine?'<span style="position:absolute;bottom:-2px;right:-2px;font-size:8px">🫵</span>':''}</div>
+      ${isHost()?`<button class="p-remove" onclick="removePlayer('${p.id}')">✕</button>`:''}
+      <div class="p-top" onclick="${isHost()?`toggleActive('${p.id}')`:''}">
+        <div class="p-avatar">${p.name[0].toUpperCase()}${p.isHost?'<span style="position:absolute;top:-2px;right:-2px;font-size:8px">👑</span>':''}${isBankerPlayer?'<span style="position:absolute;top:-2px;right:-2px;font-size:8px">💰</span>':''}${isMine&&!p.isHost?'<span style="position:absolute;bottom:-2px;right:-2px;font-size:8px">🫵</span>':''}</div>
         <div style="min-width:0">
-          <div class="p-name">${esc(p.name)}${p.isHost?' <span style="font-size:9px;color:var(--gold);font-family:DM Mono,monospace">HOST</span>':''}${p.cashedOut?' <span style="font-size:9px;color:var(--green)">OUT</span>':''}</div>
+          <div class="p-name">${esc(p.name)}${roleBadge}${p.cashedOut?' <span style="font-size:9px;color:var(--green)">OUT</span>':''}</div>
           <div class="p-sub" style="color:var(--text-muted)">${buyStr}</div>
           ${chipStr?`<div class="p-sub" style="color:${chipNet>=0?'var(--green)':'var(--red-light)'}">${chipStr}</div>`:''}
           <div class="p-sub ${cls}">${str} sides</div>
+          ${isHost()&&!p.isHost?`<button onclick="event.stopPropagation();toggleBanker('${p.id}')" style="margin-top:4px;background:none;border:1px solid ${p.isBanker?'rgba(111,163,216,0.4)':'var(--border-dim)'};border-radius:6px;padding:2px 7px;font-size:9px;color:${p.isBanker?'var(--blue)':'var(--text-muted)'};cursor:pointer;font-family:DM Mono,monospace">${p.isBanker?'✓ Banker':'+ Banker'}</button>`:''}
         </div>
       </div>
-      ${canEdit?`<div style="display:flex;border-top:1px solid var(--border-dim)">
-        <button class="p-buyin-btn" style="flex:1;border-right:1px solid var(--border-dim);border-top:none" onclick="openPlayerBuyIn('${p.id}')">＋ Buy In · $${buyIn}</button>
-        <button class="p-buyin-btn" style="flex:1;border-top:none;color:${p.cashedOut?'var(--green)':'var(--text-dim)'}" onclick="openCashOut('${p.id}')">${p.cashedOut?'✓ Cashed':'Cash Out'}</button>
-      </div>`:''}
+      ${actionBar}
     </div>`;
   }).join('');
+
   // Update totals
   const totalBI=players.reduce((s,p)=>s+(p.buyIns||0),0);
   document.getElementById('totalPokerPool').textContent=`$${totalBI*buyIn}`;
@@ -1879,8 +1975,8 @@ function renderNitGames(){
         <div class="nit-players">
           ${(g.players||[]).map(pid=>{
             const hasNit=g.nits?.[pid];
-            // Show turn-in button if: this is my player and I have a nit, OR host can tap for anyone
-            const canTurnIn=hasNit&&(pid===myId||isHost());
+            // Show turn-in button if: this is my player and I have a nit, OR host/banker can tap for anyone
+            const canTurnIn=hasNit&&(pid===myId||isBanker());
             return `<div class="nit-player" style="border-color:${hasNit?'rgba(224,84,68,0.3)':'rgba(76,175,130,0.3)'}">
               <div class="nit-dot ${hasNit?'has':'clear'}"></div>
               <span style="flex:1;color:${hasNit?'var(--text)':'var(--text-dim)'}">${esc(pname(pid))}</span>
