@@ -1027,14 +1027,7 @@ window.dismissRejoin = function(){
   document.getElementById('rejoinBanner')?.remove();
 }
 
-// ── URL room code pre-fill + auto-rejoin check ────────
-(async function(){
-  const params = new URLSearchParams(window.location.search);
-  const rc = params.get('room');
-  if(rc){ document.getElementById('joinRoomCode').value=rc.toUpperCase(); }
-  // Try auto-rejoin unless a room code is in the URL (means someone's joining fresh)
-  if(!rc){ await tryAutoRejoin(); }
-})();
+// ── URL room code pre-fill + auto-rejoin — runs after all functions defined ──
 
 // ── ENTER APP ────────────────────────────────────────
 function enterApp(){
@@ -2159,6 +2152,13 @@ function playHotDogSound(){
 
 // ── N64 CSS VAR FIX ──────────────────────────────────
 // hdFall uses CSS custom properties --rs/--re set inline
+// ── Init: URL pre-fill + auto-rejoin ─────────────────
+(async function(){
+  const params = new URLSearchParams(window.location.search);
+  const rc = params.get('room');
+  if(rc){ document.getElementById('joinRoomCode').value=rc.toUpperCase(); }
+  if(!rc){ await tryAutoRejoin(); }
+})();
 </script>
 </body>
 </html>
