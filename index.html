@@ -238,7 +238,34 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
 @keyframes hdFall{from{transform:translateY(-120px) rotate(var(--rs))}to{transform:translateY(110vh) rotate(var(--re))}}
 @keyframes hdSiren{0%,100%{opacity:0.18}50%{opacity:0.38}}
 
-/* ── Drinks ── */
+/* ── End of Game Ceremony ── */
+#ceremonyOverlay{display:none;position:fixed;inset:0;z-index:990;background:var(--felt-dark);overflow-y:auto;flex-direction:column}
+.ceremony-stage{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;max-width:500px;margin:0 auto;width:100%}
+.ceremony-logo{font-family:'Playfair Display',serif;font-size:14px;letter-spacing:4px;color:var(--text-muted);text-transform:uppercase;margin-bottom:40px;opacity:0;transition:opacity 1s}
+.ceremony-title{font-family:'Playfair Display',serif;font-size:38px;font-weight:900;color:var(--gold-light);text-align:center;line-height:1.1;margin-bottom:8px;opacity:0;transform:translateY(20px);transition:opacity .8s,transform .8s}
+.ceremony-sub{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:3px;color:var(--text-dim);text-align:center;text-transform:uppercase;margin-bottom:48px;opacity:0;transition:opacity .8s .3s}
+.ceremony-players{width:100%;display:flex;flex-direction:column;gap:10px;margin-bottom:32px}
+.ceremony-player-row{display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:14px;border:1px solid var(--border-dim);background:var(--surface);opacity:0;transform:translateX(-30px);transition:opacity .6s,transform .6s}
+.ceremony-player-row.revealed{opacity:1;transform:translateX(0)}
+.ceremony-player-row.winner{background:rgba(201,168,76,0.1);border-color:rgba(201,168,76,0.4)}
+.cp-rank{font-family:'Playfair Display',serif;font-size:24px;font-weight:900;width:36px;text-align:center;flex-shrink:0}
+.cp-avatar{width:42px;height:42px;border-radius:50%;background:var(--felt-light);border:2px solid var(--border-dim);display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-size:17px;font-weight:700;color:var(--gold);flex-shrink:0;position:relative}
+.ceremony-player-row.winner .cp-avatar{border-color:var(--gold)}
+.cp-info{flex:1;min-width:0}
+.cp-name{font-size:16px;font-weight:700;color:var(--text)}
+.cp-detail{font-size:11px;color:var(--text-dim);margin-top:2px}
+.cp-amount{font-family:'DM Mono',monospace;font-size:20px;font-weight:600;flex-shrink:0}
+.ceremony-section{width:100%;margin-bottom:24px;opacity:0;transition:opacity .8s}
+.ceremony-section.revealed{opacity:1}
+.ceremony-section-title{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--text-dim);margin-bottom:12px;text-align:center}
+.ceremony-transfer{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--surface);border:1px solid var(--border-dim);border-radius:9px;margin-bottom:7px;font-size:13px}
+.ceremony-highlight{padding:10px 14px;background:var(--surface);border:1px solid var(--border-dim);border-radius:9px;margin-bottom:7px;font-size:13px;color:var(--text-dim)}
+.ceremony-highlight strong{color:var(--text)}
+.ceremony-archive-btn{padding:16px 40px;border-radius:30px;border:none;background:var(--gold);color:var(--felt-dark);font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 4px 24px rgba(201,168,76,0.4);opacity:0;transform:translateY(20px);transition:opacity .8s,transform .8s,background .2s;margin-top:8px}
+.ceremony-archive-btn.revealed{opacity:1;transform:translateY(0)}
+.ceremony-archive-btn:hover{background:var(--gold-light)}
+@keyframes winnerPulse{0%,100%{box-shadow:0 0 0 0 rgba(201,168,76,0.4)}50%{box-shadow:0 0 0 12px rgba(201,168,76,0)}}
+.ceremony-player-row.winner.revealed{animation:winnerPulse 2s ease-in-out infinite}
 .drink-preset{padding:9px 8px;border-radius:9px;border:1px solid rgba(111,163,216,0.25);background:rgba(111,163,216,0.07);color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;text-align:center}
 .drink-preset:hover{background:rgba(111,163,216,0.15);border-color:rgba(111,163,216,0.4)}
 .drink-order-card{background:var(--surface);border:1px solid var(--border-dim);border-radius:10px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:10px}
@@ -527,6 +554,11 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
 <!-- FAB -->
 <button class="fab" id="fab" onclick="fabAction()" style="display:none"></button>
 <div class="toast" id="toast"></div>
+
+<!-- END OF GAME CEREMONY -->
+<div id="ceremonyOverlay">
+  <div class="ceremony-stage" id="ceremonyStage"></div>
+</div>
 
 <!-- HOT DOG O'CLOCK -->
 <div id="hotdogOverlay" onclick="hdOverlayClick(event)">
@@ -1108,6 +1140,13 @@ function enterApp(){
     if(isHost() && document.getElementById('hotdogOverlay').style.display==='block') renderHdTally();
     updateHdBannerSub();
   });
+
+  // Ceremony — show on all clients when host triggers
+  db.ref(`rooms/${SESSION.roomCode}/ceremony`).on('value', snap => {
+    if(snap.val()&&snap.val().active&&!isHost()){
+      buildCeremony();
+    }
+  });
 }
 
 // ── ROOM INFO / QR ────────────────────────────────────
@@ -1467,13 +1506,15 @@ window.confirmCloseNight = function(){
       </div>`).join('');
     document.getElementById('chipCheckActions').innerHTML=`
       <button class="btn btn-outline" style="flex:1" onclick="closeModal('chipCheckOverlay')">Cancel</button>
-      <button class="btn btn-danger" style="flex:2" onclick="closeNightFinal()">Archive Night</button>`;
+      <button class="btn btn-gold" style="flex:2" onclick="launchCeremony()">🏆 End Game</button>`;
     document.getElementById('chipCheckOverlay').style.display='flex';
   }else{
-    closeNightFinal();
+    launchCeremony();
   }
 }
-window.closeNightFinal = async function(){
+
+window.launchCeremony = async function(){
+  // Save any final chip totals entered
   const remaining=activePlayers().filter(p=>!p.cashedOut);
   const upd={};
   remaining.forEach(p=>{
@@ -1482,8 +1523,17 @@ window.closeNightFinal = async function(){
     if(!isNaN(val)&&val>=0){upd[`players/${p.id}/chipTotal`]=val;upd[`players/${p.id}/cashedOut`]=true;}
   });
   if(Object.keys(upd).length) await db.ref(`rooms/${SESSION.roomCode}`).update(upd);
+  closeModal('chipCheckOverlay');
 
-  // Archive to history
+  // Broadcast ceremony start to all clients
+  dbSet('ceremony',{active:true,ts:Date.now()});
+
+  // Build and show ceremony
+  buildCeremony();
+}
+
+window.closeNightFinal = async function(){
+  // Archive and reset
   const histId=uid();
   const snap=await db.ref(`rooms/${SESSION.roomCode}`).once('value');
   const nightData=snap.val();
@@ -1493,18 +1543,192 @@ window.closeNightFinal = async function(){
     nitGames:nightData.nitGames,lowGames:nightData.lowGames,
     n64Games:nightData.n64Games,raceGames:nightData.raceGames
   });
-
-  // Reset room for new night
   const d=new Date();
   const newNight=d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
-  const resetUpd={nightName:newNight,bets:null,nitGames:null,lowGames:null,n64Games:null,raceGames:null};
+  const resetUpd={nightName:newNight,bets:null,nitGames:null,lowGames:null,n64Games:null,raceGames:null,ceremony:null};
   Object.keys(R.players||{}).forEach(pid=>{
     resetUpd[`players/${pid}/buyIns`]=0;
     resetUpd[`players/${pid}/chipTotal`]=null;
     resetUpd[`players/${pid}/cashedOut`]=false;
   });
   await db.ref(`rooms/${SESSION.roomCode}`).update(resetUpd);
-  closeModal('chipCheckOverlay');clearSession();showToast('Game archived 📖');switchTab('board');
+  document.getElementById('ceremonyOverlay').style.display='none';
+  clearSession();showToast('Game archived 📖');switchTab('board');
+}
+
+// ── CEREMONY ENGINE ───────────────────────────────────
+function buildCeremony(){
+  const overlay=document.getElementById('ceremonyOverlay');
+  const stage=document.getElementById('ceremonyStage');
+  overlay.style.display='flex';
+  stage.innerHTML='';
+
+  // Compute final standings
+  const ap=activePlayers();
+  const entries=ap.map(p=>{
+    const side=getPlayerSideBal(p.id);
+    const chipNet=getPlayerChipNet(p.id);
+    const combined=side+(chipNet||0);
+    return {p,side,chipNet,combined};
+  }).sort((a,b)=>b.combined-a.combined);
+
+  // Compute transfers
+  const bals={};ap.forEach(p=>bals[p.id]=getPlayerCombinedBal(p.id));
+  const payers=ap.filter(p=>bals[p.id]<0).map(p=>({name:p.name,amt:-bals[p.id]}));
+  const receivers=ap.filter(p=>bals[p.id]>0).map(p=>({name:p.name,amt:bals[p.id]}));
+  const txns=[];let pi=0,ri=0;
+  const _p=[...payers],_r=[...receivers];
+  while(pi<_p.length&&ri<_r.length){
+    const pay=_p[pi],rec=_r[ri];const amt=Math.min(pay.amt,rec.amt);
+    if(amt>0.01)txns.push({from:pay.name,to:rec.name,amt:Math.round(amt*100)/100});
+    pay.amt-=amt;rec.amt-=amt;if(pay.amt<0.01)pi++;if(rec.amt<0.01)ri++;
+  }
+
+  // Highlights
+  const highlights=[];
+  const bets=Object.values(R.bets||{}).filter(b=>b.settled);
+  if(bets.length){
+    // Biggest side bet
+    const biggest=bets.reduce((a,b)=>b.amount>a.amount?b:a,bets[0]);
+    highlights.push(`Biggest side bet: <strong>$${biggest.amount}</strong> — ${esc(pname(biggest.winner==='proposer'?biggest.proposer:biggest.acceptor))} took it`);
+    // Most bets won
+    const wins={};ap.forEach(p=>wins[p.id]=0);
+    bets.forEach(b=>{
+      const w=b.winner==='proposer'?b.proposer:b.acceptor;
+      if(wins[w]!==undefined)wins[w]++;
+    });
+    const topWinner=Object.entries(wins).sort(([,a],[,b])=>b-a)[0];
+    if(topWinner&&topWinner[1]>0)highlights.push(`Most bets won: <strong>${esc(pname(topWinner[0]))}</strong> (${topWinner[1]})`);
+  }
+  // Nit game loser
+  const nitLosers=Object.values(R.nitGames||{}).filter(g=>g.settled&&g.loser);
+  nitLosers.forEach(g=>highlights.push(`Nit game: <strong>${esc(pname(g.loser))}</strong> paid $${g.amount*((g.players||[]).length-1)}`));
+  // 2/7 hits
+  Object.values(R.lowGames||{}).forEach(g=>{
+    const hits=Object.values(g.hits||{});
+    if(hits.length) hits.forEach(h=>highlights.push(`2/7 hit: <strong>${esc(pname(h.winner))}</strong> collected $${g.amount*((g.players||[]).length-1)}`));
+  });
+  // N64
+  Object.values(R.n64Games||{}).filter(g=>g.settled).forEach(g=>{
+    const winner=g.placements?.[0];
+    if(winner)highlights.push(`${esc(g.game)}: <strong>${esc(pname(winner))}</strong> won`);
+  });
+  // Races
+  Object.values(R.raceGames||{}).filter(g=>g.settled&&g.winner).forEach(g=>{
+    highlights.push(`40-yard dash: <strong>${esc(pname(g.winner))}</strong> wins at ${g.oddsN}:${g.oddsD}`);
+  });
+
+  const medals=['🥇','🥈','🥉'];
+  const rankCls=['winner','',''];
+  const nightName=R.nightName||'Tonight';
+  const totalBI=ap.reduce((s,p)=>s+(p.buyIns||0),0);
+
+  // Build HTML
+  stage.innerHTML=`
+    <div class="ceremony-logo" id="cLogo">PPPPoker</div>
+    <div class="ceremony-title" id="cTitle">That's a Wrap</div>
+    <div class="ceremony-sub" id="cSub">${esc(nightName)} · ${ap.length} players · $${totalBI*(R.buyIn||25)} pool</div>
+    <div class="ceremony-players" id="cPlayers">
+      ${[...entries].reverse().map((e,i)=>{
+        const realRank=entries.length-1-i;
+        const {p,side,chipNet,combined}=e;
+        const amtStr=combined>0?`+$${combined}`:combined<0?`-$${Math.abs(combined)}`:'$0';
+        const amtColor=combined>0?'var(--green)':combined<0?'var(--red-light)':'var(--text-dim)';
+        const chipStr=chipNet!=null?(chipNet>=0?`+$${chipNet}`:`-$${Math.abs(chipNet)}`):'—';
+        const sideStr=side>=0?`+$${side}`:`-$${Math.abs(side)}`;
+        const isWinner=realRank===0;
+        return `<div class="ceremony-player-row ${isWinner?'winner':''}" id="cRow_${p.id}" style="transition-delay:0s">
+          <div class="cp-rank">${realRank<3?medals[realRank]:realRank+1}</div>
+          <div class="cp-avatar">${p.name[0].toUpperCase()}${p.isHost?'<span style="position:absolute;top:-2px;right:-2px;font-size:8px">👑</span>':''}</div>
+          <div class="cp-info">
+            <div class="cp-name">${esc(p.name)}</div>
+            <div class="cp-detail">chips ${chipStr} · sides ${sideStr}</div>
+          </div>
+          <div class="cp-amount" style="color:${amtColor}">${amtStr}</div>
+        </div>`;
+      }).join('')}
+    </div>
+    ${txns.length?`<div class="ceremony-section" id="cTransfers">
+      <div class="ceremony-section-title">Transfers</div>
+      ${txns.map(t=>`<div class="ceremony-transfer">
+        <span><span style="color:var(--red-light)">${esc(t.from)}</span> → <span style="color:var(--gold);font-weight:600">${esc(t.to)}</span></span>
+        <span style="font-family:'DM Mono',monospace;color:var(--green)">$${t.amt}</span>
+      </div>`).join('')}
+    </div>`:''}
+    ${highlights.length?`<div class="ceremony-section" id="cHighlights">
+      <div class="ceremony-section-title">Highlights</div>
+      ${highlights.map(h=>`<div class="ceremony-highlight">${h}</div>`).join('')}
+    </div>`:''}
+    ${isHost()?`<button class="ceremony-archive-btn" id="cArchive" onclick="closeNightFinal()">Archive & Start Fresh</button>`:'<div class="ceremony-archive-btn" id="cArchive" style="font-size:13px;color:var(--text-dim);background:transparent;box-shadow:none;border:1px solid var(--border-dim)">Waiting for host to archive…</div>'}
+  `;
+
+  // Run dramatic reveal sequence
+  runCeremony(entries.length, !!txns.length, !!highlights.length);
+}
+
+function runCeremony(playerCount, hasTransfers, hasHighlights){
+  let t=0;
+  const delay=ms=>new Promise(r=>setTimeout(r,ms));
+
+  async function reveal(){
+    // Logo fades in
+    await delay(400);
+    document.getElementById('cLogo').style.opacity='1';
+    await delay(800);
+
+    // Title & sub
+    const title=document.getElementById('cTitle');
+    title.style.opacity='1';title.style.transform='translateY(0)';
+    await delay(400);
+    document.getElementById('cSub').style.opacity='1';
+    await delay(1000);
+
+    // Players revealed bottom to top (worst first, winner last)
+    const rows=document.querySelectorAll('[id^="cRow_"]');
+    for(let i=0;i<rows.length;i++){
+      await delay(i===rows.length-1?1400:700); // longer pause before winner
+      rows[i].classList.add('revealed');
+      if(i===rows.length-1){
+        // Winner — play a little sound
+        playWinnerSound();
+      }
+    }
+    await delay(1000);
+
+    // Transfers
+    if(hasTransfers){
+      document.getElementById('cTransfers').classList.add('revealed');
+      await delay(800);
+    }
+    // Highlights
+    if(hasHighlights){
+      document.getElementById('cHighlights').classList.add('revealed');
+      await delay(800);
+    }
+    // Archive button
+    document.getElementById('cArchive').classList.add('revealed');
+  }
+  reveal();
+}
+
+function playWinnerSound(){
+  try{
+    const ctx=new(window.AudioContext||window.webkitAudioContext)();
+    const notes=[523,659,784,1047,1319];
+    const times=[0,0.12,0.24,0.38,0.55];
+    notes.forEach((freq,i)=>{
+      const osc=ctx.createOscillator();
+      const gain=ctx.createGain();
+      osc.connect(gain);gain.connect(ctx.destination);
+      osc.type='triangle';
+      osc.frequency.value=freq;
+      gain.gain.setValueAtTime(0,ctx.currentTime+times[i]);
+      gain.gain.linearRampToValueAtTime(0.12,ctx.currentTime+times[i]+0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+times[i]+0.35);
+      osc.start(ctx.currentTime+times[i]);
+      osc.stop(ctx.currentTime+times[i]+0.4);
+    });
+  }catch(e){}
 }
 
 // ── SIDE BETS ─────────────────────────────────────────
@@ -1599,50 +1823,84 @@ window.startNitGame=function(){
   const affectsChips=isOn('nitChipToggle');
   const nits={};players.forEach(p=>nits[p]=true);
   const gid=uid();
-  dbSet(`nitGames/${gid}`,{id:gid,players,amount,affectsChips,active:true,nits,settled:false,loser:null,ts:Date.now()});
+  dbSet(`nitGames/${gid}`,{id:gid,players,amount,affectsChips,active:true,nits,pendingConfirm:false,settled:false,loser:null,ts:Date.now()});
   closeModal('nitOverlay');showToast('Nit game on!');
 }
-window.nitWonHand=function(gameId,pid){
+
+// Called when a player turns in their nit (won a hand)
+window.nitTurnIn=function(gameId,pid){
   const g=R.nitGames?.[gameId];if(!g||!g.active)return;
   const nits={...g.nits,[pid]:false};
   const remaining=Object.keys(nits).filter(k=>nits[k]);
   if(remaining.length===1){
-    dbUpdate(`nitGames/${gameId}`,{nits,active:false,settled:true,loser:remaining[0]});
-    showToast(`${pname(remaining[0])} is the nit! 💸`);
+    // One nit left — enter pending confirmation state
+    dbUpdate(`nitGames/${gameId}`,{nits,pendingConfirm:true,loser:remaining[0]});
   }else{
     dbUpdate(`nitGames/${gameId}`,{nits});
   }
 }
+
+// Called by anyone to confirm the loser and settle
+window.nitConfirm=function(gameId){
+  const g=R.nitGames?.[gameId];if(!g)return;
+  dbUpdate(`nitGames/${gameId}`,{active:false,pendingConfirm:false,settled:true});
+  showToast(`${pname(g.loser)} pays $${g.amount*((g.players||[]).length-1)} 💸`);
+}
+
 window.deleteNitGame=function(id){dbSet(`nitGames/${id}`,null);}
+
 function renderNitGames(){
   const el=document.getElementById('nitGames');
   const games=Object.values(R.nitGames||{}).sort((a,b)=>a.ts-b.ts);
   if(!games.length){el.innerHTML='';return;}
   el.innerHTML=games.map(g=>{
     const nitsLeft=Object.keys(g.nits||{}).filter(k=>g.nits[k]);
+    const myId=SESSION.playerId;
+    const iHaveNit=g.nits?.[myId]===true;
+    const pot=g.amount*((g.players||[]).length-1);
+
+    let body;
+    if(g.settled){
+      // Game over
+      body=`<div style="font-size:13px;color:var(--text-dim)">💸 <strong style="color:var(--red-light)">${esc(pname(g.loser))}</strong> pays $${pot} total ($${g.amount} × ${(g.players||[]).length-1})</div>`;
+
+    }else if(g.pendingConfirm){
+      // One nit left — everyone sees confirmation banner
+      body=`<div style="background:rgba(224,84,68,0.1);border:1px solid rgba(224,84,68,0.3);border-radius:10px;padding:14px;text-align:center">
+        <div style="font-size:22px;margin-bottom:6px">🎯</div>
+        <div style="font-size:15px;font-weight:700;color:var(--red-light);margin-bottom:4px">${esc(pname(g.loser))} is the nit!</div>
+        <div style="font-size:12px;color:var(--text-dim);margin-bottom:14px">Pays $${pot} to each of the ${(g.players||[]).length-1} others</div>
+        ${canInteract()?`<button class="btn btn-gold btn-full" onclick="nitConfirm('${g.id}')">Confirm & Settle</button>`:'<div style="font-size:12px;color:var(--text-muted)">Waiting for confirmation…</div>'}
+      </div>`;
+
+    }else{
+      // Game active — show nit status for each player
+      body=`<div class="label" style="margin-bottom:10px">Tap your button when you win a hand:</div>
+        <div class="nit-players">
+          ${(g.players||[]).map(pid=>{
+            const hasNit=g.nits?.[pid];
+            // Show turn-in button if: this is my player and I have a nit, OR host can tap for anyone
+            const canTurnIn=hasNit&&(pid===myId||isHost());
+            return `<div class="nit-player" style="border-color:${hasNit?'rgba(224,84,68,0.3)':'rgba(76,175,130,0.3)'}">
+              <div class="nit-dot ${hasNit?'has':'clear'}"></div>
+              <span style="flex:1;color:${hasNit?'var(--text)':'var(--text-dim)'}">${esc(pname(pid))}</span>
+              ${canTurnIn?`<button class="btn btn-xs" style="background:rgba(76,175,130,0.15);border:1px solid rgba(76,175,130,0.3);color:var(--green);padding:4px 10px" onclick="nitTurnIn('${g.id}','${pid}')">Turn in nit</button>`:''}
+              ${!hasNit?`<span style="font-size:10px;color:var(--green)">✓ clear</span>`:''}
+            </div>`;
+          }).join('')}
+        </div>`;
+    }
+
     return `<div class="game-card-body" style="border-top:1px solid rgba(155,127,212,0.15)">
       <div style="display:flex;justify-content:space-between;margin-bottom:10px">
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           <span class="tag tag-purple">$${g.amount}/player</span>
           ${g.affectsChips?'<span class="tag tag-dim">chips</span>':'<span class="tag tag-dim">off-table</span>'}
-          ${g.settled?'<span class="tag tag-red">settled</span>':''}
+          ${g.settled?'<span class="tag tag-red">settled</span>':g.pendingConfirm?'<span class="tag tag-red">confirm!</span>':'<span class="tag tag-green">active</span>'}
         </div>
         ${canInteract()?`<button class="btn btn-xs btn-outline" onclick="deleteNitGame('${g.id}')">✕</button>`:''}
       </div>
-      ${g.settled?
-        `<div style="font-size:13px;color:var(--text-dim)">💸 <strong style="color:var(--red-light)">${esc(pname(g.loser))}</strong> pays $${g.amount*((g.players||[]).length-1)} total</div>`
-        :
-        `<div class="label" style="margin-bottom:8px">Tap to record hand win:</div>
-        <div class="nit-players">
-          ${(g.players||[]).map(pid=>{
-            const hasNit=g.nits?.[pid];
-            return `<div class="nit-player" style="border-color:${hasNit?'rgba(224,84,68,0.3)':'rgba(76,175,130,0.3)'}">
-              <div class="nit-dot ${hasNit?'has':'clear'}"></div>
-              <span style="color:${hasNit?'var(--text)':'var(--text-dim)'}">${esc(pname(pid))}</span>
-              ${hasNit&&nitsLeft.length>1&&canInteract()?`<button class="btn btn-xs" style="background:rgba(76,175,130,0.15);border:1px solid rgba(76,175,130,0.3);color:var(--green);padding:3px 7px;margin-left:4px" onclick="nitWonHand('${g.id}','${pid}')">Won</button>`:''}
-            </div>`;
-          }).join('')}
-        </div>`}
+      ${body}
     </div>`;
   }).join('');
 }
