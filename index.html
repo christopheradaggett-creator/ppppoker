@@ -298,7 +298,21 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
   <div class="join-logo">PPPPoker</div>
   <div class="join-sub">Poker Game Side Action</div>
   <div class="join-card">
-    <div id="joinStep1">
+
+    <!-- Step 0: Rejoin (shown first if session exists) -->
+    <div id="joinStep0" style="display:none">
+      <div style="text-align:center;margin-bottom:18px">
+        <div style="font-size:32px;margin-bottom:8px">👋</div>
+        <div style="font-family:'Playfair Display',serif;font-size:20px;color:var(--gold-light);margin-bottom:4px" id="rejoinTitle">Welcome back</div>
+        <div style="font-size:13px;color:var(--text-dim)" id="rejoinSub"></div>
+      </div>
+      <button class="join-btn join-btn-gold" onclick="doRejoin()">Rejoin Game</button>
+      <div class="join-divider">not you?</div>
+      <button class="join-btn join-btn-outline" onclick="dismissRejoin()">Join as Someone Else</button>
+    </div>
+
+    <!-- Step 1: Enter room code or create -->
+    <div id="joinStep1" style="display:none">
       <label class="join-label">Room Code</label>
       <input class="join-field" id="joinRoomCode" placeholder="e.g. FELT" maxlength="8" style="text-transform:uppercase;letter-spacing:4px;font-size:20px;text-align:center">
       <button class="join-btn join-btn-gold" onclick="joinWithCode()">Enter Room</button>
@@ -306,6 +320,8 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
       <button class="join-btn join-btn-outline" onclick="showCreateRoom()">Create New Game (Host)</button>
       <div class="join-err" id="joinErr"></div>
     </div>
+
+    <!-- Step 2: Enter name -->
     <div id="joinStep2" style="display:none">
       <label class="join-label">Your Name</label>
       <input class="join-field" id="joinName" placeholder="First name" maxlength="18">
@@ -313,6 +329,8 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
       <button class="join-btn join-btn-outline" style="margin-top:0" onclick="backToStep1()">← Back</button>
       <div class="join-err" id="joinErr2"></div>
     </div>
+
+    <!-- Create room -->
     <div id="joinCreateRoom" style="display:none">
       <label class="join-label">Your Name (Host)</label>
       <input class="join-field" id="hostName" placeholder="First name" maxlength="18" value="Chris">
@@ -324,8 +342,9 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
       <button class="join-btn join-btn-outline" style="margin-top:0" onclick="backToStep1()">← Back</button>
       <div class="join-err" id="joinErr3"></div>
     </div>
+
   </div>
-  <div class="join-spectate" onclick="spectateMode()">Just watching? <span>View leaderboard only</span></div>
+  <div class="join-spectate" id="joinSpectateBtn" style="display:none" onclick="spectateMode()">Just watching? <span>View leaderboard only</span></div>
 </div>
 
 <!-- MAIN APP -->
@@ -1072,55 +1091,69 @@ function saveSession(){
     playerName: SESSION.playerName,
     savedAt: Date.now()
   })); }catch(e){}
+  // Save name separately so it persists even after session expires
+  if(SESSION.playerName){
+    try{ localStorage.setItem('ppppoker_name', SESSION.playerName); }catch(e){}
+  }
 }
 function clearSession(){
   try{ localStorage.removeItem('ppppoker_session'); }catch(e){}
 }
+
+function showStep(id){
+  ['joinStep0','joinStep1','joinStep2','joinCreateRoom'].forEach(s=>{
+    const el=document.getElementById(s);
+    if(el) el.style.display = s===id ? 'block' : 'none';
+  });
+  const spec=document.getElementById('joinSpectateBtn');
+  if(spec) spec.style.display = id==='joinStep1' ? 'block' : 'none';
+}
+
 async function tryAutoRejoin(){
   try{
-    const raw = localStorage.getItem('ppppoker_session');
-    if(!raw) return false;
-    const saved = JSON.parse(raw);
-    // Only auto-rejoin sessions less than 24 hours old
-    if(!saved.roomCode || Date.now()-saved.savedAt > 86400000){ clearSession(); return false; }
-    // Check room still exists in Firebase
-    const snap = await db.ref(`rooms/${saved.roomCode}`).once('value');
-    if(!snap.exists()){ clearSession(); return false; }
-    // Show rejoin prompt
-    showRejoinBanner(saved);
-    return true;
-  }catch(e){ return false; }
+    const raw=localStorage.getItem('ppppoker_session');
+    if(!raw) return showStep('joinStep1');
+    const saved=JSON.parse(raw);
+    if(!saved.roomCode || Date.now()-saved.savedAt > 86400000){ clearSession(); return showStep('joinStep1'); }
+    const snap=await db.ref(`rooms/${saved.roomCode}`).once('value');
+    if(!snap.exists()){ clearSession(); return showStep('joinStep1'); }
+    const room=snap.val();
+    const playerInRoom=saved.playerId && room.players && room.players[saved.playerId];
+    if(!playerInRoom && saved.role!=='host'){ clearSession(); return showStep('joinStep1'); }
+    window._savedSession=saved;
+    const name=saved.playerName||'there';
+    document.getElementById('rejoinTitle').textContent=`Welcome back, ${esc(name)}`;
+    document.getElementById('rejoinSub').textContent=`Room ${saved.roomCode} · ${saved.role}`;
+    showStep('joinStep0');
+  }catch(e){ showStep('joinStep1'); }
 }
-function showRejoinBanner(saved){
-  const banner = document.createElement('div');
-  banner.id = 'rejoinBanner';
-  banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:400;background:var(--felt);border-top:1px solid var(--border);padding:16px 20px;display:flex;flex-direction:column;gap:10px;max-width:500px;margin:0 auto';
-  banner.innerHTML = `
-    <div style="font-family:'Playfair Display',serif;font-size:16px;color:var(--gold-light)">Rejoin as ${esc(saved.playerName||'Host')}?</div>
-    <div style="font-size:12px;color:var(--text-dim)">Room <span style="color:var(--gold);font-family:'DM Mono',monospace;letter-spacing:2px">${esc(saved.roomCode)}</span> · ${saved.role}</div>
-    <div style="display:flex;gap:8px">
-      <button onclick="doRejoin()" style="flex:2;padding:12px;border-radius:9px;border:none;background:var(--gold);color:var(--felt-dark);font-family:'DM Sans',sans-serif;font-weight:700;font-size:14px;cursor:pointer">Rejoin Game</button>
-      <button onclick="dismissRejoin()" style="flex:1;padding:12px;border-radius:9px;border:1px solid var(--border-dim);background:transparent;color:var(--text-dim);font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer">Start Fresh</button>
-    </div>`;
-  document.body.appendChild(banner);
-  window._savedSession = saved;
-}
-window.doRejoin = async function(){
-  const saved = window._savedSession;
-  SESSION.role = saved.role;
-  SESSION.roomCode = saved.roomCode;
-  SESSION.playerId = saved.playerId;
-  SESSION.playerName = saved.playerName;
+
+window.doRejoin = function(){
+  const saved=window._savedSession;
+  if(!saved){ showStep('joinStep1'); return; }
+  SESSION.role=saved.role;
+  SESSION.roomCode=saved.roomCode;
+  SESSION.playerId=saved.playerId;
+  SESSION.playerName=saved.playerName;
   saveSession();
-  document.getElementById('rejoinBanner')?.remove();
   enterApp();
 }
 window.dismissRejoin = function(){
   clearSession();
-  document.getElementById('rejoinBanner')?.remove();
+  window._savedSession=null;
+  showStep('joinStep1');
+}
+window.backToStep1 = function(){
+  showStep('joinStep1');
+  document.getElementById('joinErr').textContent='';
+}
+window.showCreateRoom = function(){
+  showStep('joinCreateRoom');
+  const code=Math.random().toString(36).slice(2,6).toUpperCase();
+  document.getElementById('hostRoomCode').value=code;
 }
 
-// ── URL room code pre-fill + auto-rejoin — runs after all functions defined ──
+// ── Init: URL pre-fill + auto-rejoin ─────────────────
 
 // ── ENTER APP ────────────────────────────────────────
 function enterApp(){
@@ -2761,7 +2794,25 @@ function playHotDogSound(){
   const params = new URLSearchParams(window.location.search);
   const rc = params.get('room');
   if(rc){ document.getElementById('joinRoomCode').value=rc.toUpperCase(); }
-  if(!rc){ await tryAutoRejoin(); }
+
+  // Pre-fill name from previous visit
+  const savedName = localStorage.getItem('ppppoker_name');
+  if(savedName){
+    document.getElementById('joinName').value = savedName;
+    document.getElementById('hostName').value = savedName;
+  }
+
+  const raw = localStorage.getItem('ppppoker_session');
+  if(raw){
+    await tryAutoRejoin();
+  } else if(rc){
+    SESSION.roomCode = rc.toUpperCase();
+    document.getElementById('joinStep1').style.display='none';
+    document.getElementById('joinStep2').style.display='block';
+    document.getElementById('joinSpectateBtn').style.display='none';
+  } else {
+    showStep('joinStep1');
+  }
 })();
 </script>
 </body>
