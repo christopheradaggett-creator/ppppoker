@@ -324,8 +324,8 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
         </div>
       </div>
 
-      <!-- Persistent join strip — host only -->
-      <div id="joinStrip" class="host-only" style="background:rgba(201,168,76,0.06);border:1px solid rgba(201,168,76,0.18);border-radius:12px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;gap:14px">
+      <!-- Persistent join strip — visible to all -->
+      <div id="joinStrip" style="background:rgba(201,168,76,0.06);border:1px solid rgba(201,168,76,0.18);border-radius:12px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;gap:14px">
         <div id="lbQrCode" style="background:#fff;border-radius:6px;padding:6px;flex-shrink:0"></div>
         <div style="flex:1;min-width:0">
           <div style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:2px;color:var(--text-dim);text-transform:uppercase;margin-bottom:4px">Join Code</div>
@@ -968,26 +968,22 @@ function enterApp(){
   // Show hot dog for host
   if(isHost()) document.getElementById('hotdogBtn').style.display='block';
 
-  // Render inline QR on leaderboard for host
-  if(isHost()){
-    const code = SESSION.roomCode;
-    const url = `${window.location.origin}${window.location.pathname}?room=${code}`;
-    document.getElementById('lbRoomCode').textContent = code;
-    document.getElementById('lbRoomUrl').textContent = url;
-    const lbQr = document.getElementById('lbQrCode');
-    lbQr.innerHTML='';
-    new QRCode(lbQr,{text:url,width:72,height:72,colorDark:'#000',colorLight:'#fff'});
-    // Store url for share functions
-    window._roomUrl = url;
-    window._roomCode = code;
-  }
+  // Render inline QR for everyone
+  const _code = SESSION.roomCode;
+  const _url = `${window.location.origin}${window.location.pathname}?room=${_code}`;
+  document.getElementById('lbRoomCode').textContent = _code;
+  document.getElementById('lbRoomUrl').textContent = _url;
+  const lbQr = document.getElementById('lbQrCode');
+  lbQr.innerHTML='';
+  new QRCode(lbQr,{text:_url,width:72,height:72,colorDark:'#000',colorLight:'#fff'});
+  window._roomUrl = _url;
+  window._roomCode = _code;
 
   // Subscribe to room
   roomRef = ref(db, `rooms/${SESSION.roomCode}`);
   unsubRoom = onValue(roomRef, snap => {
     if(!snap.exists()) return;
     R = snap.val();
-    // Normalize objects that might be null/missing
     R.players = R.players||{}; R.bets = R.bets||{}; R.nitGames = R.nitGames||{};
     R.lowGames = R.lowGames||{}; R.n64Games = R.n64Games||{}; R.raceGames = R.raceGames||{};
     R.drinks = R.drinks||{}; R.hotdogOrders = R.hotdogOrders||{}; R.history = R.history||{};
@@ -1000,6 +996,26 @@ function enterApp(){
   // Connection state
   onValue(ref(db,'.info/connected'), snap => {
     document.getElementById('connectingBanner').style.display = snap.val() ? 'none' : 'block';
+  });
+
+  // Hot dog listeners — inside enterApp so roomCode is guaranteed set
+  onValue(ref(db,`rooms/${SESSION.roomCode}/hotdogOClock`), snap => {
+    if(!snap.val()) return;
+    if(!isHost()){
+      document.getElementById('hotdogOverlay').style.display='block';
+      spawnHotDogs(); startSiren(); playHotDogSound();
+      hdDogCount=1;
+      document.getElementById('hdDogCount').textContent='1';
+      document.getElementById('hdOrderPrompt').style.display='block';
+      document.getElementById('hdOrderConfirm').style.display='none';
+      document.getElementById('hdSubmitBtn').style.display='block';
+      showHdBanner();
+    }
+  });
+  onValue(ref(db,`rooms/${SESSION.roomCode}/hotdogOrders`), snap => {
+    R.hotdogOrders = snap.val()||{};
+    if(isHost() && document.getElementById('hotdogOverlay').style.display==='block') renderHdTally();
+    updateHdBannerSub();
   });
 }
 
@@ -1983,28 +1999,6 @@ function updateHdBannerSub(){
   const sub=document.getElementById('hdReopenSub');
   if(sub) sub.textContent=orders.length?`${orders.length} order${orders.length>1?'s':''} · ${total} 🌭 total`:'Tap to view orders';
 }
-
-// Players see order prompt when host triggers
-onValue(ref(db,`rooms/${SESSION.roomCode}/hotdogOClock`),snap=>{
-  if(!snap.val())return;
-  if(!isHost()){
-    document.getElementById('hotdogOverlay').style.display='block';
-    spawnHotDogs();startSiren();playHotDogSound();
-    hdDogCount=1;
-    document.getElementById('hdDogCount').textContent='1';
-    document.getElementById('hdOrderPrompt').style.display='block';
-    document.getElementById('hdOrderConfirm').style.display='none';
-    document.getElementById('hdSubmitBtn').style.display='block';
-    showHdBanner();
-  }
-});
-
-// Host sees tally update live; everyone's banner sub updates
-onValue(ref(db,`rooms/${SESSION.roomCode}/hotdogOrders`),snap=>{
-  R.hotdogOrders=snap.val()||{};
-  if(isHost()&&document.getElementById('hotdogOverlay').style.display==='block') renderHdTally();
-  updateHdBannerSub();
-});
 
 window.hdAdjust=function(delta){
   hdDogCount=Math.max(0,hdDogCount+delta);
