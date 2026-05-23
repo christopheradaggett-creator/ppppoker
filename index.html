@@ -1784,10 +1784,11 @@ function renderPlayers(){
     // Bottom action bar — what shows depends on role
     let actionBar='';
     if(canManageThisPlayer){
-      // Host or table banker: full buy-in and cash-out controls
+      // Host or table banker: full buy-in and cash-out controls + table toggle for host
       actionBar=`<div style="display:flex;border-top:1px solid var(--border-dim)">
-        <button class="p-buyin-btn" style="flex:1;border-right:1px solid var(--border-dim);border-top:none" onclick="openPlayerBuyIn('${p.id}')">＋ Buy In · $${buyIn}</button>
-        <button class="p-buyin-btn" style="flex:1;border-top:none;color:${p.cashedOut?'var(--green)':'var(--text-dim)'}" onclick="openCashOut('${p.id}')">${p.cashedOut?'✓ Cashed':'Cash Out'}</button>
+        <button class="p-buyin-btn" style="flex:2;border-right:1px solid var(--border-dim);border-top:none" onclick="openPlayerBuyIn('${p.id}')">＋ Buy In · $${buyIn}</button>
+        <button class="p-buyin-btn" style="flex:2;border-right:1px solid var(--border-dim);border-top:none;color:${p.cashedOut?'var(--green)':'var(--text-dim)'}" onclick="openCashOut('${p.id}')">${p.cashedOut?'✓ Cashed':'Cash Out'}</button>
+        ${isHost()?`<button class="p-buyin-btn" style="flex:1;border-top:none;color:var(--blue)" onclick="assignTable('${p.id}',${(p.table||1)===1?2:1})">→ T${(p.table||1)===1?2:1}</button>`:''}
       </div>`;
     }else if(isMine&&SESSION.role==='player'){
       // My own card as a player — request buy-in and tip dealer buttons
@@ -1812,7 +1813,6 @@ function renderPlayers(){
           <div class="p-sub ${cls}">${str} sides</div>
           ${isHost()&&!p.isHost?`<div style="display:flex;gap:4px;margin-top:4px">
             <button onclick="event.stopPropagation();toggleBanker('${p.id}')" style="background:none;border:1px solid ${p.isBanker?'rgba(111,163,216,0.4)':'var(--border-dim)'};border-radius:6px;padding:2px 7px;font-size:9px;color:${p.isBanker?'var(--blue)':'var(--text-muted)'};cursor:pointer;font-family:DM Mono,monospace">${p.isBanker?'✓ Banker':'+ Banker'}</button>
-            <button onclick="event.stopPropagation();assignTable('${p.id}',${(p.table||1)===1?2:1})" style="background:none;border:1px solid var(--border-dim);border-radius:6px;padding:2px 7px;font-size:9px;color:var(--text-muted);cursor:pointer;font-family:DM Mono,monospace">→ T${(p.table||1)===1?2:1}</button>
           </div>`:''}
           ${canManageThisPlayer&&!isHost()&&isBankerPlayer?`<button onclick="event.stopPropagation();toggleBanker('${p.id}')" style="margin-top:4px;background:none;border:1px solid rgba(111,163,216,0.4);border-radius:6px;padding:2px 7px;font-size:9px;color:var(--blue);cursor:pointer;font-family:DM Mono,monospace">✓ Banker</button>`:''}
         </div>
