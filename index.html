@@ -496,7 +496,7 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
     <div class="section" id="sec-players">
       <div class="sec-header" style="margin-top:4px">
         <div class="sec-title">Tonight's Table</div>
-        <div class="buyin-badge host-only" onclick="openBuyInSettings()">$<span id="buyInAmt"></span> buy-in</div>
+        <div class="buyin-badge" onclick="openBuyInSettings()" id="buyInBadge">$<span id="buyInAmt"></span> buy-in</div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
         <div style="background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.2);border-radius:10px;padding:11px 13px">
@@ -783,7 +783,7 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
   <div class="modal">
     <div class="modal-handle"></div>
     <div class="modal-title">Buy-In Amounts</div>
-    <div class="form-row">
+    <div class="form-row" id="buyInRow1">
       <label class="field-label">Table 1 ($)</label>
       <input class="field" id="buyInField1" type="number" min="1">
       <div class="presets">
@@ -792,7 +792,7 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
         <button class="preset" onclick="document.getElementById('buyInField1').value=100">$100</button>
       </div>
     </div>
-    <div class="form-row">
+    <div class="form-row" id="buyInRow2">
       <label class="field-label">Table 2 ($)</label>
       <input class="field" id="buyInField2" type="number" min="1">
       <div class="presets">
@@ -1195,7 +1195,8 @@ function canInteract(){ return SESSION.role==='host'||SESSION.role==='player'||S
 function getBuyIn(tableOrPlayer){
   const table = typeof tableOrPlayer === 'number' ? tableOrPlayer :
     (R.players?.[tableOrPlayer]?.table || 1);
-  return table===2 ? (R.buyIn2||R.buyIn||25) : (R.buyIn1||R.buyIn||25);
+  const fallback = R.buyIn||25;
+  return table===2 ? (R.buyIn2||fallback) : (R.buyIn1||fallback);
 }
 
 // expose globally for onclick handlers
@@ -1399,10 +1400,15 @@ function enterApp(){
   document.getElementById('roomPill').textContent=SESSION.roomCode;
   document.getElementById('headerSub').textContent=SESSION.playerName||'Spectator';
 
+  // Hide buy-in badge from spectators and plain players
+  if(SESSION.role==='spectator'||SESSION.role==='player'){
+    const badge=document.getElementById('buyInBadge');
+    if(badge)badge.style.display='none';
+  }
+
   // Hide host-only elements for non-hosts
   if(!isHost()){
     document.querySelectorAll('.host-only').forEach(el=>el.style.display='none');
-    // hide history tab
     document.getElementById('t-history').style.display='none';
   }
   // Spectators: further restrict
@@ -1580,15 +1586,35 @@ window.saveNightName = function(){
   closeModal('nightOverlay');
 }
 window.openBuyInSettings = function(){
-  document.getElementById('buyInField1').value=R.buyIn1||R.buyIn||25;
-  document.getElementById('buyInField2').value=R.buyIn2||R.buyIn||25;
+  if(!isHost()&&SESSION.role!=='banker'){showToast('Host or banker only');return;}
+  const myTable=R.players[SESSION.playerId]?.table||1;
+  if(isHost()){
+    // Host sees both tables
+    document.getElementById('buyInField1').value=R.buyIn1||R.buyIn||25;
+    document.getElementById('buyInField2').value=R.buyIn2||R.buyIn||25;
+    document.getElementById('buyInRow1').style.display='block';
+    document.getElementById('buyInRow2').style.display='block';
+  }else{
+    // Banker sees only their table
+    document.getElementById(`buyInField${myTable}`).value=getBuyIn(myTable);
+    document.getElementById('buyInRow1').style.display=myTable===1?'block':'none';
+    document.getElementById('buyInRow2').style.display=myTable===2?'block':'none';
+  }
   document.getElementById('buyInOverlay').style.display='flex';
 }
 window.saveBuyIn = function(){
-  const v1=parseInt(document.getElementById('buyInField1').value);
-  const v2=parseInt(document.getElementById('buyInField2').value);
-  if(v1>0&&v2>0){
-    db.ref(`rooms/${SESSION.roomCode}`).update({buyIn1:v1,buyIn2:v2,buyIn:v1});
+  const myTable=R.players[SESSION.playerId]?.table||1;
+  if(isHost()){
+    const v1=parseInt(document.getElementById('buyInField1').value);
+    const v2=parseInt(document.getElementById('buyInField2').value);
+    if(v1>0&&v2>0) db.ref(`rooms/${SESSION.roomCode}`).update({buyIn1:v1,buyIn2:v2,buyIn:v1});
+  }else{
+    const v=parseInt(document.getElementById(`buyInField${myTable}`).value);
+    if(v>0){
+      const upd={[`buyIn${myTable}`]:v};
+      if(myTable===1)upd.buyIn=v;
+      db.ref(`rooms/${SESSION.roomCode}`).update(upd);
+    }
   }
   closeModal('buyInOverlay');
 }
@@ -2095,18 +2121,21 @@ window.launchCeremony = async function(){
 }
 
 window.closeNightFinal = async function(){
-  // Archive and reset
+  // Show loading state on archive button
+  const archBtn=document.getElementById('cArchive');
+  if(archBtn){archBtn.textContent='Archiving…';archBtn.disabled=true;}
+
   const histId=uid();
   const snap=await db.ref(`rooms/${SESSION.roomCode}`).once('value');
   const nightData=snap.val();
   await db.ref(`rooms/${SESSION.roomCode}/history/${histId}`).set({
-    nightName:R.nightName,date:new Date().toISOString(),buyIn:R.buyIn,
+    nightName:R.nightName,date:new Date().toISOString(),buyIn:R.buyIn,buyIn1:R.buyIn1,buyIn2:R.buyIn2,
     players:nightData.players,bets:nightData.bets,
     nitGames:nightData.nitGames,lowGames:nightData.lowGames,
     n64Games:nightData.n64Games,raceGames:nightData.raceGames
   });
 
-  // Update lifetime stats for all registered profiles
+  // Update lifetime stats
   await updateLifetimeStats({
     nightName:R.nightName, date:new Date().toISOString(), buyIn:R.buyIn,
     players:nightData.players, bets:nightData.bets,
@@ -2114,17 +2143,22 @@ window.closeNightFinal = async function(){
     n64Games:nightData.n64Games, raceGames:nightData.raceGames,
     hotdogOrders:nightData.hotdogOrders
   });
+
+  // Reset room
   const d=new Date();
   const newNight=d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
-  const resetUpd={nightName:newNight,bets:null,nitGames:null,lowGames:null,n64Games:null,raceGames:null,ceremony:null,pinataGames:null,activePinata:null};
+  const resetUpd={nightName:newNight,bets:null,nitGames:null,lowGames:null,n64Games:null,raceGames:null,ceremony:null,pinataGames:null,activePinata:null,hotdogOrders:null,buyInRequests:null,adjustments:null};
   Object.keys(R.players||{}).forEach(pid=>{
     resetUpd[`players/${pid}/buyIns`]=0;
     resetUpd[`players/${pid}/chipTotal`]=null;
     resetUpd[`players/${pid}/cashedOut`]=false;
   });
   await db.ref(`rooms/${SESSION.roomCode}`).update(resetUpd);
+
+  // Close ceremony and go to leaderboard
   document.getElementById('ceremonyOverlay').style.display='none';
-  clearSession();showToast('Game archived 📖');switchTab('board');
+  showToast('Game archived 📖');
+  switchTab('board');
 }
 
 // ── CEREMONY ENGINE ───────────────────────────────────
@@ -2402,8 +2436,8 @@ window.openNitModal=function(){
   const myTable=R.players[SESSION.playerId]?.table||1;
   const ap=activePlayers().filter(p=>(p.table||1)===myTable);
   if(ap.length<2){showToast('Need 2+ active players at this table');return;}
-  document.getElementById('nitAmount').value=5;document.getElementById('nitChipToggle').classList.remove('on');
-  document.getElementById('nitPlayerSel').innerHTML=ap.map(p=>`<button class="sel-chip" onclick="toggleNitPlayer('${p.id}',this)">${esc(p.name)}</button>`).join('');
+  document.getElementById('nitAmount').value=5;document.getElementById('nitChipToggle').classList.add('on');
+  document.getElementById('nitPlayerSel').innerHTML=ap.map(p=>`<button class="sel-chip" onclick="toggleNitPlayer('${p.id}',this)">${esc(p.name)} <span style="font-size:9px;opacity:0.6">T${p.table||1}</span></button>`).join('');
   document.getElementById('nitOverlay').style.display='flex';
 }
 window.toggleNitPlayer=function(id,el){nitSelPlayers[id]=!nitSelPlayers[id];el.classList.toggle('s-purple',!!nitSelPlayers[id]);}
@@ -2503,8 +2537,8 @@ window.openLowModal=function(){
   const myTable=R.players[SESSION.playerId]?.table||1;
   const ap=activePlayers().filter(p=>(p.table||1)===myTable);
   if(ap.length<2){showToast('Need 2+ active players at this table');return;}
-  document.getElementById('lowAmount').value=5;document.getElementById('lowChipToggle').classList.remove('on');
-  document.getElementById('lowPlayerSel').innerHTML=ap.map(p=>`<button class="sel-chip" onclick="toggleLowPlayer('${p.id}',this)">${esc(p.name)}</button>`).join('');
+  document.getElementById('lowAmount').value=5;document.getElementById('lowChipToggle').classList.add('on');
+  document.getElementById('lowPlayerSel').innerHTML=ap.map(p=>`<button class="sel-chip" onclick="toggleLowPlayer('${p.id}',this)">${esc(p.name)} <span style="font-size:9px;opacity:0.6">T${p.table||1}</span></button>`).join('');
   document.getElementById('lowOverlay').style.display='flex';
 }
 window.toggleLowPlayer=function(id,el){lowSelPlayers[id]=!lowSelPlayers[id];el.classList.toggle('s-orange',!!lowSelPlayers[id]);}
