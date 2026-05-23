@@ -1462,8 +1462,18 @@ function enterApp(){
   // Live bid tally refresh for host when reveal is open
   db.ref(`rooms/${SESSION.roomCode}/pinataGames`).on('value', snap => {
     R.pinataGames = snap.val()||{};
-    if(isHost()&&activePinataId&&document.getElementById('pinataRevealOverlay').style.display==='block'){
-      renderBidTally(activePinataId);
+    // Only update tally — don't touch bid options if overlay is open and user hasn't confirmed yet
+    if(activePinataId&&document.getElementById('pinataRevealOverlay').style.display==='block'){
+      const confirmShowing=document.getElementById('pinataBidConfirm')?.style.display!=='none';
+      if(isHost()&&!confirmShowing){
+        // Re-render bid options only if user hasn't started bidding
+        const anyInputFilled=['bat','crowbar'].some(wk=>{
+          const el=document.getElementById(`bidAmt_${wk}`);
+          return el&&el.value.trim()!=='';
+        });
+        if(!anyInputFilled) renderPlayerBidOptions(activePinataId);
+      }
+      if(isHost()) renderBidTally(activePinataId);
     }
     if(curTab==='games') renderPinataGames();
   });
@@ -3360,11 +3370,19 @@ function renderPlayerBidOptions(gameId){
 }
 
 window.submitBid=function(gameId,weapon){
-  const amt=parseFloat(document.getElementById(`bidAmt_${weapon}`).value);
+  // Read the value immediately before anything can re-render
+  const input=document.getElementById(`bidAmt_${weapon}`);
+  const amt=parseFloat(input?input.value:0);
   if(!amt||amt<=0){showToast('Enter a bid amount');return;}
-  dbSet(`pinataGames/${gameId}/bids/${SESSION.playerId}`,{
-    playerId:SESSION.playerId, weapon, amount:amt, ts:Date.now()
+  const pid=SESSION.playerId;
+  if(!pid){showToast('Session error — try rejoining');return;}
+  // Write to Firebase
+  dbSet(`pinataGames/${gameId}/bids/${pid}`,{
+    playerId:pid,
+    playerName:SESSION.playerName||pname(pid),
+    weapon, amount:amt, ts:Date.now()
   });
+  // Update UI immediately without waiting for Firebase
   document.getElementById('pinataBidOptions').style.display='none';
   document.getElementById('pinataBidConfirm').style.display='block';
   document.getElementById('pinataBidConfirm').textContent=`✓ Bid $${amt} for ${getPinataWeapons()[weapon]?.name||weapon}`;
@@ -3376,9 +3394,24 @@ function renderBidTally(gameId){
   const bids=Object.values(g.bids||{});
   const w=getPinataWeapons();
   const el=document.getElementById('pinataBidTallyRows');
+  if(!el)return;
   if(!bids.length){el.innerHTML='<div style="font-size:12px;color:rgba(255,255,255,0.4);text-align:center">Waiting for bids…</div>';return;}
-  // Group by weapon
+
+  // Don't re-render bid options if confirm is already showing (user already bid or is typing)
+  const confirmShowing=document.getElementById('pinataBidConfirm')?.style.display!=='none';
+  if(!confirmShowing){
+    // Check if this player already bid in Firebase
+    const myBid=g.bids?.[SESSION.playerId];
+    if(myBid){
+      document.getElementById('pinataBidOptions').style.display='none';
+      document.getElementById('pinataBidConfirm').style.display='block';
+      document.getElementById('pinataBidConfirm').textContent=`✓ Bid $${myBid.amount} for ${w[myBid.weapon]?.name||myBid.weapon}`;
+    }
+  }
+
+  // Group by weapon and render tally
   const grouped={bat:[],crowbar:[]};
+  bids.forEach(b=>{if(grouped[b.weapon])grouped[b.weapon].push(b);});
   bids.forEach(b=>{if(grouped[b.weapon])grouped[b.weapon].push(b);});
   el.innerHTML=Object.entries(grouped).map(([wk,wbids])=>{
     if(!wbids.length)return '';
