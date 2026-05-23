@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>PPPPoker</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="PPPPoker">
+<meta name="theme-color" content="#071a13">
+<link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgdmlld0JveD0iMCAwIDUxMiA1MTIiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CiAgPHJlY3Qgd2lkdGg9IjUxMiIgaGVpZ2h0PSI1MTIiIHJ4PSI4MCIgZmlsbD0iIzA3MWExMyIvPgogIDwhLS0gUmVkIGNoaXAgYmFjayBsZWZ0IC0tPgogIDxjaXJjbGUgY3g9IjIxNSIgY3k9IjMyMCIgcj0iMTI4IiBmaWxsPSIjOEIxQTFBIi8+CiAgPGNpcmNsZSBjeD0iMjE1IiBjeT0iMzIwIiByPSIxMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2UwNTQ0NCIgc3Ryb2tlLXdpZHRoPSIxOCIgc3Ryb2tlLWRhc2hhcnJheT0iMjIgMTQiLz4KICA8Y2lyY2xlIGN4PSIyMTUiIGN5PSIzMjAiIHI9Ijk2IiBmaWxsPSIjOEIxQTFBIi8+CiAgPCEtLSBCbHVlIGNoaXAgYmFjayByaWdodCAtLT4KICA8Y2lyY2xlIGN4PSIzMTAiIGN5PSIzMjAiIHI9IjEyOCIgZmlsbD0iIzFhMmU1YyIvPgogIDxjaXJjbGUgY3g9IjMxMCIgY3k9IjMyMCIgcj0iMTEwIiBmaWxsPSJub25lIiBzdHJva2U9IiM0YTZmZDQiIHN0cm9rZS13aWR0aD0iMTgiIHN0cm9rZS1kYXNoYXJyYXk9IjIyIDE0Ii8+CiAgPGNpcmNsZSBjeD0iMzEwIiBjeT0iMzIwIiByPSI5NiIgZmlsbD0iIzFhMmU1YyIvPgogIDwhLS0gR29sZCBjaGlwIGZyb250IC0tPgogIDxjaXJjbGUgY3g9IjI1NiIgY3k9IjI0MCIgcj0iMTQ0IiBmaWxsPSIjM2QyYTA0Ii8+CiAgPGNpcmNsZSBjeD0iMjU2IiBjeT0iMjQwIiByPSIxMjQiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2U4Yzk3YSIgc3Ryb2tlLXdpZHRoPSIyMiIgc3Ryb2tlLWRhc2hhcnJheT0iMjQgMTYiLz4KICA8Y2lyY2xlIGN4PSIyNTYiIGN5PSIyNDAiIHI9IjEwNiIgZmlsbD0iIzNkMmEwNCIvPgogIDx0ZXh0IHg9IjI1NiIgeT0iMjc2IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LWZhbWlseT0iR2VvcmdpYSxzZXJpZiIgZm9udC1zaXplPSIxMjAiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiNjOWE4NGMiPkA8L3RleHQ+Cjwvc3ZnPg==">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
@@ -672,13 +677,13 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
     <div style="font-family:'Playfair Display',serif;font-size:34px;font-weight:900;color:#e84aa2;text-shadow:0 0 30px rgba(232,74,162,0.8);animation:hdPulse .7s ease-in-out infinite alternate">CASH</div>
     <div style="font-family:'Playfair Display',serif;font-size:34px;font-weight:900;color:#ffcc00;text-shadow:0 0 30px rgba(255,200,0,0.8);animation:hdPulse .7s ease-in-out infinite alternate 0.35s">PIÑATA</div>
     <!-- Player bidding card -->
-    <div id="pinataBidCard" style="display:none;margin-top:24px;background:rgba(0,0,0,0.7);border:1px solid rgba(232,74,162,0.4);border-radius:16px;padding:18px 24px;text-align:center;pointer-events:all;min-width:280px">
+    <div id="pinataBidCard" style="display:none;margin-top:24px;background:rgba(0,0,0,0.7);border:1px solid rgba(232,74,162,0.4);border-radius:16px;padding:18px 24px;text-align:center;pointer-events:all;min-width:280px" onclick="event.stopPropagation()">
       <div style="font-size:13px;color:rgba(255,255,255,0.7);margin-bottom:12px">Bid for a premium weapon — highest bidder wins 🏏</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px" id="pinataBidOptions"></div>
       <div id="pinataBidConfirm" style="display:none;color:#4caf82;font-size:13px;font-weight:600">✓ Bid placed!</div>
     </div>
     <!-- Host sees bids live -->
-    <div id="pinataBidTally" style="display:none;margin-top:24px;background:rgba(0,0,0,0.7);border:1px solid rgba(232,74,162,0.4);border-radius:16px;padding:18px 24px;pointer-events:all;min-width:280px">
+    <div id="pinataBidTally" style="display:none;margin-top:24px;background:rgba(0,0,0,0.7);border:1px solid rgba(232,74,162,0.4);border-radius:16px;padding:18px 24px;pointer-events:all;min-width:280px" onclick="event.stopPropagation()">
       <div style="font-size:13px;font-weight:700;color:#ffcc00;margin-bottom:12px;text-align:center">⚡ Live Bids</div>
       <div id="pinataBidTallyRows"></div>
       <button onclick="closePinataRevealAndSettle()" style="width:100%;margin-top:14px;padding:11px;border-radius:10px;border:none;background:#e84aa2;color:#fff;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer">Lock Bids & Start 🪅</button>
@@ -3234,7 +3239,6 @@ window.openPinataSetup=function(){
   if(!isHost())return;
   pinataSelPlayers={};
   const ap=activePlayers();
-  if(ap.length<2){showToast('Need 2+ active players');return;}
   document.getElementById('pinataAnte').value='';
   const w=getPinataWeapons();
   document.getElementById('weapon1Label').textContent=w.bat.emoji+' '+w.bat.name;
@@ -3251,7 +3255,7 @@ window.togglePinataPlayer=function(id,el){
 
 window.launchPinata=function(){
   const players=Object.keys(pinataSelPlayers).filter(k=>pinataSelPlayers[k]);
-  if(players.length<2){showToast('Select 2+ players');return;}
+  if(!players.length){showToast('Select at least 1 player');return;}
   const ante=parseFloat(document.getElementById('pinataAnte').value);
   if(!ante||ante<=0){showToast('Enter ante amount');return;}
   const pot=Math.round(players.length*ante*100)/100;
@@ -3370,19 +3374,20 @@ function renderPlayerBidOptions(gameId){
 }
 
 window.submitBid=function(gameId,weapon){
-  // Read the value immediately before anything can re-render
+  console.log('submitBid called', {gameId, weapon, playerId:SESSION.playerId, roomCode:SESSION.roomCode});
   const input=document.getElementById(`bidAmt_${weapon}`);
+  console.log('input element:', input, 'value:', input?.value);
   const amt=parseFloat(input?input.value:0);
+  console.log('parsed amount:', amt);
   if(!amt||amt<=0){showToast('Enter a bid amount');return;}
   const pid=SESSION.playerId;
   if(!pid){showToast('Session error — try rejoining');return;}
-  // Write to Firebase
+  console.log('writing bid to Firebase...');
   dbSet(`pinataGames/${gameId}/bids/${pid}`,{
     playerId:pid,
     playerName:SESSION.playerName||pname(pid),
     weapon, amount:amt, ts:Date.now()
-  });
-  // Update UI immediately without waiting for Firebase
+  }).then(()=>console.log('bid written successfully')).catch(e=>console.error('bid write failed',e));
   document.getElementById('pinataBidOptions').style.display='none';
   document.getElementById('pinataBidConfirm').style.display='block';
   document.getElementById('pinataBidConfirm').textContent=`✓ Bid $${amt} for ${getPinataWeapons()[weapon]?.name||weapon}`;
