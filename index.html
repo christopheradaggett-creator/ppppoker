@@ -2264,7 +2264,12 @@ function buildCeremony(){
       <div class="ceremony-section-title">Highlights</div>
       ${highlights.map(h=>`<div class="ceremony-highlight">${h}</div>`).join('')}
     </div>`:''}
-    ${isHost()?`<button class="ceremony-archive-btn" id="cArchive" onclick="closeNightFinal()">Archive & Start Fresh</button>`:'<div class="ceremony-archive-btn" id="cArchive" style="font-size:13px;color:var(--text-dim);background:transparent;box-shadow:none;border:1px solid var(--border-dim)">Waiting for host to archive…</div>'}
+    ${isHost()?`
+      <button class="ceremony-archive-btn" id="cArchive" onclick="closeNightFinal()">Archive & Start Fresh</button>
+      <div style="margin-top:10px;opacity:0;transition:opacity .8s" id="cSkip">
+        <button onclick="closeNightFinal()" style="background:none;border:none;color:var(--text-dim);font-size:12px;cursor:pointer;text-decoration:underline">skip ceremony and archive</button>
+      </div>`
+    :'<div class="ceremony-archive-btn" id="cArchive" style="font-size:13px;color:var(--text-dim);background:transparent;box-shadow:none;border:1px solid var(--border-dim)">Waiting for host to archive…</div>'}
   `;
 
   // Run dramatic reveal sequence
@@ -2272,46 +2277,52 @@ function buildCeremony(){
 }
 
 function runCeremony(playerCount, hasTransfers, hasHighlights){
-  let t=0;
   const delay=ms=>new Promise(r=>setTimeout(r,ms));
 
   async function reveal(){
-    // Logo fades in
-    await delay(400);
-    document.getElementById('cLogo').style.opacity='1';
-    await delay(800);
+    try{
+      await delay(400);
+      const cLogo=document.getElementById('cLogo');
+      if(cLogo)cLogo.style.opacity='1';
+      await delay(800);
 
-    // Title & sub
-    const title=document.getElementById('cTitle');
-    title.style.opacity='1';title.style.transform='translateY(0)';
-    await delay(400);
-    document.getElementById('cSub').style.opacity='1';
-    await delay(1000);
+      const title=document.getElementById('cTitle');
+      if(title){title.style.opacity='1';title.style.transform='translateY(0)';}
+      await delay(400);
+      const cSub=document.getElementById('cSub');
+      if(cSub)cSub.style.opacity='1';
+      await delay(1000);
 
-    // Players revealed bottom to top (worst first, winner last)
-    const rows=document.querySelectorAll('[id^="cRow_"]');
-    for(let i=0;i<rows.length;i++){
-      await delay(i===rows.length-1?1400:700); // longer pause before winner
-      rows[i].classList.add('revealed');
-      if(i===rows.length-1){
-        // Winner — play a little sound
-        playWinnerSound();
+      const rows=document.querySelectorAll('[id^="cRow_"]');
+      for(let i=0;i<rows.length;i++){
+        await delay(i===rows.length-1?1400:700);
+        rows[i].classList.add('revealed');
+        if(i===rows.length-1) playWinnerSound();
       }
-    }
-    await delay(1000);
+      await delay(1000);
 
-    // Transfers
-    if(hasTransfers){
-      document.getElementById('cTransfers').classList.add('revealed');
-      await delay(800);
+      if(hasTransfers){
+        const cT=document.getElementById('cTransfers');
+        if(cT)cT.classList.add('revealed');
+        await delay(800);
+      }
+      if(hasHighlights){
+        const cH=document.getElementById('cHighlights');
+        if(cH)cH.classList.add('revealed');
+        await delay(800);
+      }
+    }catch(e){
+      console.error('Ceremony reveal error',e);
+    }finally{
+      // Always show archive button regardless of errors
+      const cArchive=document.getElementById('cArchive');
+      if(cArchive)cArchive.classList.add('revealed');
+      // Show skip link after short delay as fallback
+      setTimeout(()=>{
+        const cSkip=document.getElementById('cSkip');
+        if(cSkip)cSkip.style.opacity='1';
+      },3000);
     }
-    // Highlights
-    if(hasHighlights){
-      document.getElementById('cHighlights').classList.add('revealed');
-      await delay(800);
-    }
-    // Archive button
-    document.getElementById('cArchive').classList.add('revealed');
   }
   reveal();
 }
