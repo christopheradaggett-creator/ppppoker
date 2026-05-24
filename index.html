@@ -1061,11 +1061,11 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
       </div>
     </div>
     <div class="form-row">
-      <label class="field-label">Odds (optional — e.g. 2:1 means you win twice your stake)</label>
+      <label class="field-label">Your odds (N:D) — at 2:1, you put up $10 and win $20; taker puts up $20 to win $10</label>
       <div style="display:flex;gap:8px;align-items:center">
-        <input class="field" id="specBetOddsN" type="number" min="1" value="1" style="flex:1;text-align:center">
+        <input class="field" id="specBetOddsN" type="number" min="1" value="1" style="flex:1;text-align:center" oninput="updateSpecBetPreview()">
         <span style="color:var(--text-dim);font-size:16px">:</span>
-        <input class="field" id="specBetOddsD" type="number" min="1" value="1" style="flex:1;text-align:center">
+        <input class="field" id="specBetOddsD" type="number" min="1" value="1" style="flex:1;text-align:center" oninput="updateSpecBetPreview()">
       </div>
     </div>
     <div style="font-size:11px;color:var(--text-dim);margin-bottom:16px" id="specBetPreview"></div>
@@ -2237,7 +2237,62 @@ window.confirmCloseNight = function(){
 }
 
 window.launchCeremony = async function(){
-  // Save any final chip totals entered
+  // Collect and validate final chip totals
+  const remaining=activePlayers().filter(p=>!p.cashedOut);
+  const upd={};
+  let enteredTotal=0;
+  let blankCount=0;
+
+  // Include already cashed-out players in total
+  activePlayers().filter(p=>p.cashedOut&&p.chipTotal!=null).forEach(p=>{
+    enteredTotal+=p.chipTotal;
+  });
+
+  remaining.forEach(p=>{
+    const el=document.getElementById(`cc_${p.id}`);if(!el)return;
+    const raw=el.value.trim();
+    if(raw===''){blankCount++;return;}
+    const val=parseFloat(raw);
+    if(!isNaN(val)&&val>=0){
+      upd[`players/${p.id}/chipTotal`]=val;
+      upd[`players/${p.id}/cashedOut`]=true;
+      enteredTotal+=val;
+    }
+  });
+
+  // Validate if all fields filled
+  if(blankCount===0){
+    const expectedTotal=Object.values(R.players||{}).reduce((s,p)=>s+(p.buyIns||0)*getBuyIn(p.table||1),0);
+    if(Math.round(enteredTotal)!==Math.round(expectedTotal)){
+      const diff=Math.round(enteredTotal)-Math.round(expectedTotal);
+      const errEl=document.getElementById('chipCheckErr');
+      if(errEl){
+        errEl.innerHTML=`<strong>⛔ Numbers don't add up!</strong><br>You entered <strong>$${Math.round(enteredTotal)}</strong> but the pool is <strong>$${Math.round(expectedTotal)}</strong> (${diff>0?'over by':'short by'} $${Math.abs(diff)}). Fix the numbers or override.`;
+        errEl.style.display='block';
+        errEl.style.borderColor='var(--red-light)';
+        errEl.style.background='rgba(192,57,43,0.15)';
+        errEl.style.transform='translateX(-4px)';
+        setTimeout(()=>{errEl.style.transform='translateX(4px)';},80);
+        setTimeout(()=>{errEl.style.transform='translateX(-3px)';},160);
+        setTimeout(()=>{errEl.style.transform='translateX(0)';},240);
+      }
+      // Replace End Game button with override option
+      document.getElementById('chipCheckActions').innerHTML=`
+        <button class="btn btn-outline" style="flex:1" onclick="closeModal('chipCheckOverlay');resetChipCheckModal()">Cancel</button>
+        <button class="btn btn-danger" style="flex:1" onclick="forceLaunchCeremony()">Force End Game</button>
+        <button class="btn btn-gold" style="flex:1" onclick="launchCeremony()">Re-check</button>`;
+      return;
+    }
+  }
+
+  if(Object.keys(upd).length) await db.ref(`rooms/${SESSION.roomCode}`).update(upd);
+  closeModal('chipCheckOverlay');
+  resetChipCheckModal();
+  dbSet('ceremony',{active:true,ts:Date.now()});
+  buildCeremony();
+}
+
+window.forceLaunchCeremony = async function(){
   const remaining=activePlayers().filter(p=>!p.cashedOut);
   const upd={};
   remaining.forEach(p=>{
@@ -2247,11 +2302,8 @@ window.launchCeremony = async function(){
   });
   if(Object.keys(upd).length) await db.ref(`rooms/${SESSION.roomCode}`).update(upd);
   closeModal('chipCheckOverlay');
-
-  // Broadcast ceremony start to all clients
+  resetChipCheckModal();
   dbSet('ceremony',{active:true,ts:Date.now()});
-
-  // Build and show ceremony
   buildCeremony();
 }
 
@@ -3934,9 +3986,12 @@ function updateSpecBetPreview(){
   const side=document.getElementById('specBetSide').value;
   const sideLabel=_specBetGame?.sides?.find(s=>s.key===side)?.label||side;
   if(!amt){document.getElementById('specBetPreview').textContent='';return;}
-  const winAmt=Math.round(amt*n/d*100)/100;
-  document.getElementById('specBetPreview').textContent=
-    `If ${sideLabel} wins: you collect $${winAmt} · If they lose: you pay $${amt}`;
+  const proposerWins=Math.round(amt*n/d*100)/100;
+  const takerStake=proposerWins;
+  const takerWins=amt;
+  document.getElementById('specBetPreview').innerHTML=
+    `<strong>You:</strong> put up $${amt} · win $${proposerWins} if ${sideLabel} wins<br>`+
+    `<strong>Taker:</strong> put up $${takerStake} · win $${takerWins}`;
 }
 
 window.proposeSpecBet=function(){
@@ -4202,7 +4257,7 @@ function renderLinkedBets(gameType, gameId){
         <div style="text-align:center">
           <div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:3px">${esc(pn)} bets</div>
           <div style="font-size:12px;font-weight:700;color:${proposerWon?'var(--green)':b.settled?'var(--text-dim)':'var(--gold)'};margin-bottom:2px">${esc(pSide||pn)}</div>
-          <div class="mono" style="font-size:11px;color:var(--text-muted)">put up $${b.amount}</div>
+          <div class="mono" style="font-size:11px;color:var(--text-muted)">put up $${proposerStake}</div>
           <div class="mono" style="font-size:12px;color:${proposerWon?'var(--green)':'var(--text-muted)'}">
             ${proposerWon?`✓ +$${proposerWins}`:`+$${proposerWins} to win`}
           </div>
