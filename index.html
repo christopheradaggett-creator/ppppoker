@@ -246,7 +246,18 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
 @keyframes hdFall{from{transform:translateY(-120px) rotate(var(--rs))}to{transform:translateY(110vh) rotate(var(--re))}}
 @keyframes hdSiren{0%,100%{opacity:0.18}50%{opacity:0.38}}
 
-/* ── Stats ── */
+/* ── Stats Table ── */
+.stats-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -18px;padding:0 18px 4px}
+.stats-table{border-collapse:collapse;min-width:700px;width:100%;font-size:12px}
+.stats-table th{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-dim);padding:8px 12px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--border-dim);background:var(--felt-dark);position:sticky;top:0}
+.stats-table th:first-child{text-align:left}
+.stats-table td{padding:10px 12px;text-align:right;border-bottom:1px solid var(--border-dim);white-space:nowrap;color:var(--text)}
+.stats-table td:first-child{text-align:left;font-weight:600}
+.stats-table tr:hover td{background:var(--surface)}
+.stats-table .section-header td{background:rgba(201,168,76,0.06);color:var(--gold);font-family:'DM Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;padding:6px 12px;border-bottom:1px solid var(--border-dim)}
+.stats-pos{color:var(--green)}.stats-neg{color:var(--red-light)}.stats-dim{color:var(--text-dim)}
+.stats-name-cell{display:flex;flex-direction:column;gap:2px}
+.stats-username{font-family:'DM Mono',monospace;font-size:9px;color:var(--text-muted);letter-spacing:1px}
 .profile-card{background:var(--surface);border:1px solid var(--border-dim);border-radius:var(--r);overflow:hidden;margin-bottom:10px;transition:border-color .15s}
 .profile-card:hover{border-color:var(--border)}
 .profile-header{display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer}
@@ -409,10 +420,8 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
   <nav class="nav" id="mainNav">
     <button class="nav-tab active" onclick="switchTab('board')" id="t-board">Leaderboard</button>
     <button class="nav-tab" onclick="switchTab('players')" id="t-players">Players</button>
-    <button class="nav-tab" onclick="switchTab('bets')" id="t-bets">Side Bets</button>
     <button class="nav-tab" onclick="switchTab('games')" id="t-games">Games</button>
     <button class="nav-tab" onclick="switchTab('drinks')" id="t-drinks">🍹 Drinks</button>
-    <button class="nav-tab" onclick="switchTab('stats')" id="t-stats">Stats</button>
     <button class="nav-tab" onclick="switchTab('settle')" id="t-settle">Settle Up</button>
     <button class="nav-tab" onclick="switchTab('history')" id="t-history">History</button>
   </nav>
@@ -528,17 +537,29 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
 
     <!-- SIDE BETS -->
     <div class="section" id="sec-bets">
-      <div class="sec-header" style="margin-top:4px"><div class="sec-title">Side Bets</div></div>
-      <div id="betsList"></div>
-      <div id="betsEmpty" class="empty" style="display:none">
-        <div class="empty-icon">🤝</div>
-        <div class="empty-text">No bets yet. Hit the button below.</div>
-      </div>
-    </div>
-
-    <!-- GAMES -->
+    <!-- GAMES (includes side bets) -->
     <div class="section" id="sec-games">
-      <div class="sec-header" style="margin-top:4px"><div class="sec-title">Side Games</div></div>
+      <div class="sec-header" style="margin-top:4px"><div class="sec-title">Games</div></div>
+
+      <!-- Side Bets -->
+      <div class="game-card" style="background:rgba(201,168,76,0.06);border-color:rgba(201,168,76,0.2)">
+        <div class="game-card-header" style="background:rgba(201,168,76,0.08)">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:18px">🤝</span>
+            <div><div style="font-weight:700;font-size:14px">Side Bets</div><div style="font-size:11px;color:var(--text-dim)">Free-form bets between any players</div></div>
+          </div>
+          <button class="btn btn-xs btn-gold" onclick="openBetModal()">New Bet</button>
+        </div>
+        <div style="padding:0 4px">
+          <div id="betsList"></div>
+          <div id="betsEmpty" class="empty" style="display:none;padding:20px">
+            <div class="empty-icon">🤝</div>
+            <div class="empty-text">No bets yet.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
       <div class="label" style="margin-bottom:6px">On-Table (affects chips)</div>
       <div class="game-card nit-card">
         <div class="game-card-header nit-header">
@@ -583,7 +604,16 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
         <div id="raceGames"></div>
       </div>
 
-      <!-- Piñata — host only -->
+      <div class="game-card" style="background:rgba(111,163,216,0.06);border-color:rgba(111,163,216,0.2)">
+        <div class="game-card-header" style="background:rgba(111,163,216,0.08)">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:18px">🔫</span>
+            <div><div style="font-weight:700;font-size:14px">Nerf Darts</div><div style="font-size:11px;color:var(--text-dim)">1v1 or 2v2 · winner takes pot</div></div>
+          </div>
+          <button class="btn btn-xs btn-gold" onclick="openNerfModal()">New Match</button>
+        </div>
+        <div id="nerfGames"></div>
+      </div>
       <div class="game-card pinata-card host-only">
         <div class="game-card-header pinata-header">
           <div style="display:flex;align-items:center;gap:10px">
@@ -636,32 +666,31 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
       </div>
     </div>
 
-    <!-- STATS -->
-    <div class="section" id="sec-stats">
-      <div class="sec-header" style="margin-top:4px">
-        <div class="sec-title">All-Time Stats</div>
-        <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text-dim)" id="statsPlayerCount"></div>
-      </div>
-      <!-- Sort controls -->
-      <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap" id="statsSortRow">
-        <button class="preset active" onclick="setStatsSort('net')" id="ss-net">Net $</button>
-        <button class="preset" onclick="setStatsSort('games')" id="ss-games">Games</button>
-        <button class="preset" onclick="setStatsSort('winrate')" id="ss-winrate">Win Rate</button>
-        <button class="preset" onclick="setStatsSort('hotdogs')" id="ss-hotdogs">🌭</button>
-      </div>
-      <div id="statsProfiles"></div>
-      <div id="statsEmpty" class="empty" style="display:none">
-        <div class="empty-icon">📊</div>
-        <div class="empty-text">No profiles yet.<br>Players register when they join.</div>
-      </div>
-    </div>
-
-    <!-- HISTORY (host only) -->
+    <!-- HISTORY + STATS -->
     <div class="section" id="sec-history">
-      <div class="sec-header" style="margin-top:4px"><div class="sec-title">History</div></div>
-      <div id="historyList"></div>
-      <div id="historyEmpty" class="empty" style="display:none">
-        <div class="empty-icon">📖</div><div class="empty-text">No archived nights yet.</div>
+      <div class="sec-header" style="margin-top:4px">
+        <div class="sec-title" id="historyTabTitle">History</div>
+        <div style="font-size:10px;color:var(--text-dim);font-family:'DM Mono',monospace" id="statsPlayerCount"></div>
+      </div>
+      <!-- Toggle -->
+      <div style="display:flex;gap:6px;margin-bottom:14px">
+        <button class="preset active" id="hv-games" onclick="setHistoryView('games')">Game History</button>
+        <button class="preset" id="hv-stats" onclick="setHistoryView('stats')">All-Time Stats</button>
+      </div>
+      <!-- Game History view -->
+      <div id="historyGamesView">
+        <div id="historyList"></div>
+        <div id="historyEmpty" class="empty" style="display:none">
+          <div class="empty-icon">📖</div><div class="empty-text">No archived games yet.</div>
+        </div>
+      </div>
+      <!-- Stats view -->
+      <div id="historyStatsView" style="display:none">
+        <div id="statsProfiles"></div>
+        <div id="statsEmpty" class="empty" style="display:none">
+          <div class="empty-icon">📊</div>
+          <div class="empty-text">No profiles yet.<br>Players register when they join.</div>
+        </div>
       </div>
     </div>
 
@@ -1012,6 +1041,42 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
   </div>
 </div>
 
+<!-- Nerf Darts -->
+<div class="overlay" id="nerfOverlay" style="display:none" onclick="if(event.target===this)closeModal('nerfOverlay')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">🔫 Nerf Darts</div>
+    <div class="form-row">
+      <label class="field-label">Format</label>
+      <div style="display:flex;gap:8px">
+        <button class="sel-chip s-blue" id="nerfFmt1v1" onclick="setNerfFormat('1v1')">1v1</button>
+        <button class="sel-chip" id="nerfFmt2v2" onclick="setNerfFormat('2v2')">2v2</button>
+      </div>
+    </div>
+    <div class="form-row">
+      <label class="field-label">Stake per player ($)</label>
+      <input class="field" id="nerfStake" type="number" min="1" placeholder="e.g. 5">
+      <div class="presets">
+        <button class="preset" onclick="setAmt('nerfStake',5)">$5</button>
+        <button class="preset" onclick="setAmt('nerfStake',10)">$10</button>
+        <button class="preset" onclick="setAmt('nerfStake',20)">$20</button>
+      </div>
+    </div>
+    <div class="form-row">
+      <label class="field-label" id="nerfTeamALabel">🔴 Team A</label>
+      <div class="sel-grid" id="nerfTeamASel"></div>
+    </div>
+    <div class="form-row" id="nerfTeamBRow">
+      <label class="field-label">🔵 Team B</label>
+      <div class="sel-grid" id="nerfTeamBSel"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" style="flex:1" onclick="closeModal('nerfOverlay')">Cancel</button>
+      <button class="btn btn-gold" style="flex:2" onclick="startNerfMatch()">Lock & Load 🔫</button>
+    </div>
+  </div>
+</div>
+
 <!-- Piñata Setup (host only) -->
 <div class="overlay" id="pinataSetupOverlay" style="display:none" onclick="if(event.target===this)closeModal('pinataSetupOverlay')">
   <div class="modal">
@@ -1144,14 +1209,13 @@ function switchTab(t){
   if(secEl)secEl.classList.add('active');
   curTab=t;
   var fab=document.getElementById('fab');
-  if(t==='bets'&&typeof canInteract==='function'&&canInteract()){fab.style.display='block';fab.textContent='＋ New Side Bet';}
+  if(t==='games'&&typeof canInteract==='function'&&canInteract()){fab.style.display='block';fab.textContent='＋ New Side Bet';}
   else if(fab){fab.style.display='none';}
   if(t==='settle'&&typeof renderSettle==='function')renderSettle();
-  if(t==='history'&&typeof renderHistory==='function')renderHistory();
+  if(t==='history'&&typeof renderHistory==='function'){renderHistory();renderStats();}
   if(t==='drinks'&&typeof renderDrinks==='function')renderDrinks();
-  if(t==='stats'&&typeof renderStats==='function')renderStats();
 }
-function fabAction(){ if(curTab==='bets'&&typeof openBetModal==='function')openBetModal(); }
+function fabAction(){ if(curTab==='games'&&typeof openBetModal==='function')openBetModal(); }
 
 // ── Firebase ──────────────────────────────────────────
 const firebaseConfig = {
@@ -1427,7 +1491,6 @@ function enterApp(){
   // Spectators: further restrict
   if(SESSION.role==='spectator'){
     document.getElementById('t-players').style.display='none';
-    document.getElementById('t-bets').style.display='none';
     document.getElementById('t-games').style.display='none';
     document.getElementById('t-settle').style.display='none';
   }
@@ -1452,7 +1515,7 @@ function enterApp(){
     if(!snap.exists()) return;
     R = snap.val();
     R.players = R.players||{}; R.bets = R.bets||{}; R.nitGames = R.nitGames||{};
-    R.lowGames = R.lowGames||{}; R.n64Games = R.n64Games||{}; R.raceGames = R.raceGames||{}; R.pinataGames = R.pinataGames||{};
+    R.lowGames = R.lowGames||{}; R.n64Games = R.n64Games||{}; R.raceGames = R.raceGames||{}; R.pinataGames = R.pinataGames||{}; R.nerfGames = R.nerfGames||{};
     R.drinks = R.drinks||{}; R.hotdogOrders = R.hotdogOrders||{}; R.buyInRequests = R.buyInRequests||{}; R.adjustments = R.adjustments||{}; R.menu = R.menu||null; R.history = R.history||{};
     // Sync banker role to SESSION if my player record was updated
     if(SESSION.playerId&&R.players[SESSION.playerId]){
@@ -1571,7 +1634,7 @@ window.shareRoomSMS = function(){
 
 function renderAll(){
   renderLeaderboard(); renderPlayers(); renderBets();
-  renderNitGames(); renderLowGames(); renderN64Games(); renderRaceGames(); renderPinataGames();
+  renderNitGames(); renderLowGames(); renderN64Games(); renderRaceGames(); renderPinataGames(); renderNerfGames();
   renderDrinks();
   updateBadges();
   if(curTab==='settle')renderSettle();
@@ -1579,8 +1642,8 @@ function renderAll(){
 }
 function updateBadges(){
   const pending=Object.values(R.bets||{}).filter(b=>!b.settled).length;
-  const t=document.getElementById('t-bets');
-  t.innerHTML='Side Bets'+(pending?`<span class="nav-badge">${pending}</span>`:'');
+  const t=document.getElementById('t-games');
+  if(t) t.innerHTML='Games'+(pending?`<span class="nav-badge">${pending}</span>`:'');
 }
 
 // ── DB HELPERS ────────────────────────────────────────
@@ -2179,7 +2242,7 @@ window.closeNightFinal = async function(){
     const newNight=d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
     const resetUpd={
       nightName:newNight, bets:null, nitGames:null, lowGames:null,
-      n64Games:null, raceGames:null, ceremony:null, pinataGames:null,
+      n64Games:null, raceGames:null, nerfGames:null, ceremony:null, pinataGames:null,
       activePinata:null, hotdogOrders:null, buyInRequests:null, adjustments:null
     };
     Object.keys(R.players||{}).forEach(pid=>{
@@ -2846,16 +2909,29 @@ function renderSettle(){
 }
 
 // ── HISTORY ───────────────────────────────────────────
+window.setHistoryView=function(view){
+  document.getElementById('historyGamesView').style.display=view==='games'?'block':'none';
+  document.getElementById('historyStatsView').style.display=view==='stats'?'block':'none';
+  document.getElementById('hv-games').classList.toggle('active',view==='games');
+  document.getElementById('hv-stats').classList.toggle('active',view==='stats');
+  document.getElementById('historyTabTitle').textContent=view==='games'?'History':'All-Time Stats';
+}
+
 function renderHistory(){
-  const el=document.getElementById('historyList');const empty=document.getElementById('historyEmpty');
-  const nights=Object.values(R.history||{}).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const el=document.getElementById('historyList');
+  const empty=document.getElementById('historyEmpty');
+  // Read directly from Firebase to avoid cache issues
+  db.ref(`rooms/${SESSION.roomCode}/history`).once('value').then(snap=>{
+    const nights=Object.values(snap.val()||{}).sort((a,b)=>new Date(b.date)-new Date(a.date));
   if(!nights.length){el.innerHTML='';empty.style.display='block';return;}
   empty.style.display='none';
+  let _historyNights=[];
   el.innerHTML=nights.map((night,i)=>{
+    _historyNights[i]=night;
     const players=Object.values(night.players||{});
     const totalBI=players.reduce((s,p)=>s+(p.buyIns||0),0);
     const buyIn=night.buyIn||25;
-    const totalPool=players.reduce((s,p)=>s+(p.buyIns||0)*(p.table===2?(night.buyIn2||buyIn):( night.buyIn1||buyIn)),0);
+    const totalPool=players.reduce((s,p)=>s+(p.buyIns||0)*(p.table===2?(night.buyIn2||buyIn):(night.buyIn1||buyIn)),0);
     const bets=Object.keys(night.bets||{}).length;
     return `<div class="hist-card" onclick="showHistoryDetail(${i})">
       <div class="mono" style="font-size:13px;color:var(--gold);margin-bottom:4px">${esc(night.nightName)}</div>
@@ -2863,11 +2939,13 @@ function renderHistory(){
       <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Tap for full results →</div>
     </div>`;
   }).join('');
+  window._historyNights=_historyNights;
+  });
 }
 
 window.showHistoryDetail=function(idx){
-  const nights=Object.values(R.history||{}).sort((a,b)=>new Date(b.date)-new Date(a.date));
-  const night=nights[idx];if(!night)return;
+  const night=window._historyNights&&window._historyNights[idx];
+  if(!night)return;
 
   const players=Object.values(night.players||{});
   const bets=Object.values(night.bets||{});
@@ -3440,14 +3518,6 @@ function calcN64SplitsFromData(g){
 }
 
 // ── RENDER STATS ──────────────────────────────────────
-let statsSort='net';
-window.setStatsSort=function(s){
-  statsSort=s;
-  document.querySelectorAll('#statsSortRow .preset').forEach(b=>b.classList.remove('active'));
-  document.getElementById('ss-'+s).classList.add('active');
-  renderStats();
-}
-
 function renderStats(){
   db.ref('profiles').once('value').then(snap=>{
     const profiles=Object.values(snap.val()||{});
@@ -3457,71 +3527,221 @@ function renderStats(){
 
     if(!profiles.length){el.innerHTML='';empty.style.display='block';return;}
     empty.style.display='none';
-    countEl.textContent=`${profiles.length} registered`;
+    countEl.textContent=`${profiles.length} players`;
 
-    // Sort
-    profiles.sort((a,b)=>{
-      const sa=a.stats||emptyStats();const sb=b.stats||emptyStats();
-      if(statsSort==='net') return sb.totalNet-sa.totalNet;
-      if(statsSort==='games') return sb.gamesPlayed-sa.gamesPlayed;
-      if(statsSort==='winrate'){
-        const wr=s=>s.gamesPlayed?s.totalNet/s.gamesPlayed:0;
-        return wr(sb)-wr(sa);
-      }
-      if(statsSort==='hotdogs') return (sb.hotdogsOrdered||0)-(sa.hotdogsOrdered||0);
-      return 0;
-    });
+    // Sort by lifetime winnings
+    profiles.sort((a,b)=>(b.stats?.totalNet||0)-(a.stats?.totalNet||0));
 
-    const maxNet=Math.max(...profiles.map(p=>(p.stats||{}).totalNet||0),1);
+    function fmt(n){
+      const v=Math.round(n||0);
+      return v>0?`<span class="stats-pos">+$${v}</span>`:v<0?`<span class="stats-neg">-$${Math.abs(v)}</span>`:`<span class="stats-dim">$0</span>`;
+    }
+    function fmtN(n,suffix=''){
+      return `<span style="color:var(--text)">${Math.round(n||0)}${suffix}</span>`;
+    }
+    function wl(w,l){
+      return `<span style="color:var(--green)">${w||0}W</span><span style="color:var(--text-muted)">-</span><span style="color:var(--red-light)">${l||0}L</span>`;
+    }
 
-    el.innerHTML=profiles.map((profile,i)=>{
-      const s=profile.stats||emptyStats();
-      const net=s.totalNet||0;
-      const netCls=net>0?'val-pos':net<0?'val-neg':'val-zero';
-      const netStr=net>0?`+$${Math.round(net)}`:net<0?`-$${Math.abs(Math.round(net))}`:'$0';
-      const winRate=s.sideBetsWon+s.sideBetsLost>0?Math.round(s.sideBetsWon/(s.sideBetsWon+s.sideBetsLost)*100):0;
-      const barWidth=maxNet>0?Math.round(Math.abs(net)/maxNet*100):0;
-      const barColor=net>=0?'var(--green)':'var(--red-light)';
-
-      return `<div class="profile-card">
-        <div class="profile-header" onclick="toggleProfileBody('pb_${i}')">
-          <div class="profile-avatar">${(profile.firstName||profile.username||'?')[0].toUpperCase()}</div>
-          <div class="profile-info">
-            <div class="profile-name">${esc(profile.firstName||'')} ${esc(profile.lastName||'')}</div>
-            <div class="profile-username">@${esc(profile.username)}${profile.favCocktail?` · 🍹 ${esc(profile.favCocktail)}`:''}</div>
-          </div>
-          <div class="profile-net ${netCls}">${netStr}</div>
-        </div>
-        <div class="profile-body" id="pb_${i}">
-          <div class="stats-grid-sm">
-            <div class="stat-sm"><div class="stat-sm-val">${s.gamesPlayed||0}</div><div class="stat-sm-lbl">Games</div></div>
-            <div class="stat-sm"><div class="stat-sm-val" style="color:var(--gold)">$${Math.round(s.totalNet/Math.max(s.gamesPlayed,1))}</div><div class="stat-sm-lbl">Per Game</div></div>
-            <div class="stat-sm"><div class="stat-sm-val">${winRate}%</div><div class="stat-sm-lbl">Bet W%</div></div>
-            <div class="stat-sm"><div class="stat-sm-val" style="color:var(--green)">+$${Math.round(s.biggestWin||0)}</div><div class="stat-sm-lbl">Best Night</div></div>
-            <div class="stat-sm"><div class="stat-sm-val" style="color:var(--red-light)">-$${Math.abs(Math.round(s.biggestLoss||0))}</div><div class="stat-sm-lbl">Worst Night</div></div>
-            <div class="stat-sm"><div class="stat-sm-val">${s.hotdogsOrdered||0} 🌭</div><div class="stat-sm-lbl">Hot Dogs</div></div>
-          </div>
-          <div style="height:4px;background:var(--border-dim);border-radius:2px;margin:12px 0 4px;overflow:hidden"><div style="height:100%;width:${barWidth}%;background:${barColor};border-radius:2px"></div></div>
-          <div class="stats-section-lbl">Poker</div>
-          <div class="stats-bar-row"><span style="color:var(--text-dim)">Total buy-ins</span><span class="mono">${s.totalBuyIns||0}</span></div>
-          <div class="stats-bar-row"><span style="color:var(--text-dim)">Net chips</span><span class="mono ${s.totalNetPoker>=0?'val-pos':'val-neg'}">${s.totalNetPoker>=0?'+':''}$${Math.round(s.totalNetPoker||0)}</span></div>
-          <div class="stats-section-lbl">Side Action</div>
-          <div class="stats-bar-row"><span style="color:var(--text-dim)">Net sides</span><span class="mono ${s.totalNetSides>=0?'val-pos':'val-neg'}">${s.totalNetSides>=0?'+':''}$${Math.round(s.totalNetSides||0)}</span></div>
-          <div class="stats-bar-row"><span style="color:var(--text-dim)">Bets W/L</span><span class="mono">${s.sideBetsWon||0}/${s.sideBetsLost||0}</span></div>
-          <div class="stats-bar-row"><span style="color:var(--text-dim)">Nit losses</span><span class="mono val-neg">${s.nitLosses||0}</span></div>
-          <div class="stats-bar-row"><span style="color:var(--text-dim)">2/7 hits</span><span class="mono val-gold">${s.lowHits||0}</span></div>
-          <div class="stats-bar-row"><span style="color:var(--text-dim)">N64 W/L</span><span class="mono">${s.n64Wins||0}/${s.n64Losses||0}</span></div>
-          <div class="stats-bar-row"><span style="color:var(--text-dim)">Race W/L</span><span class="mono">${s.raceWins||0}/${s.raceLosses||0}</span></div>
-          ${s.biggestPot?`<div class="stats-bar-row"><span style="color:var(--text-dim)">Biggest pot</span><span class="mono val-gold">$${s.biggestPot}</span></div>`:''}
-        </div>
-      </div>`;
-    }).join('');
+    el.innerHTML=`
+    <div class="stats-scroll">
+      <table class="stats-table">
+        <thead>
+          <tr>
+            <th style="text-align:left;position:sticky;left:0;z-index:2;background:var(--felt-dark)">Player</th>
+            <th>Lifetime<br>Winnings</th>
+            <th>Avg/Game</th>
+            <th>Games<br>W/L</th>
+            <th>Best<br>Night</th>
+            <th>Worst<br>Night</th>
+            <th>🌭<br>Dogs</th>
+            <th colspan="2" style="text-align:center;border-left:1px solid var(--border-dim)">Side Bets</th>
+            <th colspan="2" style="text-align:center;border-left:1px solid var(--border-dim)">Nit Game</th>
+            <th colspan="2" style="text-align:center;border-left:1px solid var(--border-dim)">2/7</th>
+            <th colspan="2" style="text-align:center;border-left:1px solid var(--border-dim)">N64</th>
+            <th colspan="2" style="text-align:center;border-left:1px solid var(--border-dim)">Races</th>
+          </tr>
+          <tr style="font-size:8px">
+            <th style="position:sticky;left:0;z-index:2;background:var(--felt-dark)"></th>
+            <th></th><th></th><th></th><th></th><th></th><th></th>
+            <th style="border-left:1px solid var(--border-dim)">W/L</th><th>Net</th>
+            <th style="border-left:1px solid var(--border-dim)">W/L</th><th>Net</th>
+            <th style="border-left:1px solid var(--border-dim)">Hits</th><th>Net</th>
+            <th style="border-left:1px solid var(--border-dim)">W/L</th><th>Net</th>
+            <th style="border-left:1px solid var(--border-dim)">W/L</th><th>Net</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${profiles.map(profile=>{
+            const s=profile.stats||emptyStats();
+            const net=s.totalNet||0;
+            const games=s.gamesPlayed||0;
+            const avgPerGame=games?Math.round(net/games):0;
+            // Game-level W/L: count nights where combined net > 0
+            const history=s.gameHistory||[];
+            const gamesWon=history.filter(g=>g.net>0).length;
+            const gamesLost=history.filter(g=>g.net<0).length;
+            // Side bet net
+            const betNet=(s.totalNetSides||0)-(s.nitLosses||0)*5-(s.nitWins||0)*5-(s.lowHits||0)*5;
+            // Approximate nit net and 2/7 net from stored stats
+            const nitNet=Math.round(((s.nitWins||0)*5)-((s.nitLosses||0)*5));
+            const lowNet=Math.round((s.lowHits||0)*5);
+            const n64Net=Math.round(s.totalNetSides||0)-Math.round(s.totalNetPoker||0); // rough
+            return `<tr>
+              <td style="position:sticky;left:0;background:var(--felt-dark);z-index:1">
+                <div class="stats-name-cell">
+                  <span>${esc(profile.firstName||'')} ${esc(profile.lastName||'')}</span>
+                  <span class="stats-username">@${esc(profile.username)}${profile.favCocktail?` · 🍹`:''}</span>
+                </div>
+              </td>
+              <td>${fmt(net)}</td>
+              <td>${fmt(avgPerGame)}</td>
+              <td>${wl(gamesWon,gamesLost)}</td>
+              <td>${fmt(s.biggestWin)}</td>
+              <td>${fmt(s.biggestLoss)}</td>
+              <td>${fmtN(s.hotdogsOrdered)}</td>
+              <td style="border-left:1px solid var(--border-dim)">${wl(s.sideBetsWon,s.sideBetsLost)}</td>
+              <td>${fmt(s.totalNetSides)}</td>
+              <td style="border-left:1px solid var(--border-dim)">${wl(s.nitWins,s.nitLosses)}</td>
+              <td>${fmt(nitNet)}</td>
+              <td style="border-left:1px solid var(--border-dim)">${fmtN(s.lowHits)}</td>
+              <td>${fmt(lowNet)}</td>
+              <td style="border-left:1px solid var(--border-dim)">${wl(s.n64Wins,s.n64Losses)}</td>
+              <td>${fmt(0)}</td>
+              <td style="border-left:1px solid var(--border-dim)">${wl(s.raceWins,s.raceLosses)}</td>
+              <td>${fmt(0)}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div style="font-size:10px;color:var(--text-muted);margin-top:8px;text-align:center">Scroll horizontally for full stats · Game-specific net values build over time</div>`;
   });
 }
 
 window.toggleProfileBody=function(id){
   const el=document.getElementById(id);
   if(el) el.classList.toggle('open');
+}
+
+// ── NERF DARTS ────────────────────────────────────────
+let nerfFormat='1v1';
+let nerfTeamA={}, nerfTeamB={};
+
+window.openNerfModal=function(){
+  nerfFormat='1v1'; nerfTeamA={}; nerfTeamB={};
+  const ap=activePlayers();
+  if(ap.length<2){showToast('Need 2+ players');return;}
+  document.getElementById('nerfStake').value='';
+  setNerfFormat('1v1');
+  document.getElementById('nerfOverlay').style.display='flex';
+}
+
+window.setNerfFormat=function(fmt){
+  nerfFormat=fmt; nerfTeamA={}; nerfTeamB={};
+  document.getElementById('nerfFmt1v1').className='sel-chip'+(fmt==='1v1'?' s-blue':'');
+  document.getElementById('nerfFmt2v2').className='sel-chip'+(fmt==='2v2'?' s-blue':'');
+  const ap=activePlayers();
+  if(fmt==='1v1'){
+    document.getElementById('nerfTeamALabel').textContent='🔴 Player A';
+    document.getElementById('nerfTeamBRow').style.display='none';
+    // In 1v1, team A selector picks both players via toggle
+    document.getElementById('nerfTeamASel').innerHTML=ap.map(p=>
+      `<button class="sel-chip" onclick="toggleNerf1v1('${p.id}',this)">${esc(p.name)} <span style="font-size:9px;opacity:0.6">T${p.table||1}</span></button>`
+    ).join('');
+  }else{
+    document.getElementById('nerfTeamALabel').textContent='🔴 Team A';
+    document.getElementById('nerfTeamBRow').style.display='block';
+    const chips=ap.map(p=>`<button class="sel-chip" onclick="toggleNerfTeam('${p.id}','A',this)">${esc(p.name)} <span style="font-size:9px;opacity:0.6">T${p.table||1}</span></button>`).join('');
+    document.getElementById('nerfTeamASel').innerHTML=chips;
+    document.getElementById('nerfTeamBSel').innerHTML=ap.map(p=>
+      `<button class="sel-chip" onclick="toggleNerfTeam('${p.id}','B',this)">${esc(p.name)} <span style="font-size:9px;opacity:0.6">T${p.table||1}</span></button>`
+    ).join('');
+  }
+}
+
+let nerf1v1Players=[];
+window.toggleNerf1v1=function(id,el){
+  if(nerf1v1Players.includes(id)){
+    nerf1v1Players=nerf1v1Players.filter(p=>p!==id);
+    el.classList.remove('s-red','s-blue');
+  }else if(nerf1v1Players.length===0){
+    nerf1v1Players.push(id); el.classList.add('s-red');
+    nerfTeamA={[id]:true};
+  }else if(nerf1v1Players.length===1){
+    nerf1v1Players.push(id); el.classList.add('s-blue');
+    nerfTeamB={[id]:true};
+  }
+}
+window.toggleNerfTeam=function(id,team,el){
+  if(team==='A'){
+    nerfTeamA[id]=!nerfTeamA[id];
+    el.classList.toggle('s-red',!!nerfTeamA[id]);
+    if(nerfTeamA[id]&&nerfTeamB[id]){nerfTeamB[id]=false;}
+  }else{
+    nerfTeamB[id]=!nerfTeamB[id];
+    el.classList.toggle('s-blue',!!nerfTeamB[id]);
+    if(nerfTeamB[id]&&nerfTeamA[id]){nerfTeamA[id]=false;}
+  }
+}
+
+window.startNerfMatch=function(){
+  const stake=parseFloat(document.getElementById('nerfStake').value);
+  if(!stake||stake<=0){showToast('Enter a stake');return;}
+  const teamA=Object.keys(nerfFormat==='1v1'?nerfTeamA:nerfTeamA).filter(k=>(nerfFormat==='1v1'?nerfTeamA:nerfTeamA)[k]);
+  const teamB=Object.keys(nerfTeamB).filter(k=>nerfTeamB[k]);
+  if(nerfFormat==='1v1'&&(teamA.length!==1||teamB.length!==1)){showToast('Pick one player per side');return;}
+  if(nerfFormat==='2v2'&&(teamA.length!==2||teamB.length!==2)){showToast('Pick two players per side');return;}
+  const pot=stake*(teamA.length+teamB.length);
+  const gid=uid();
+  dbSet(`nerfGames/${gid}`,{id:gid,format:nerfFormat,stake,pot,teamA,teamB,settled:false,winner:null,ts:Date.now()});
+  closeModal('nerfOverlay');
+  nerf1v1Players=[];
+  showToast(`Nerf match on! $${pot} pot 🔫`);
+}
+
+window.settleNerfMatch=function(gameId,winTeam){
+  const g=R.nerfGames?.[gameId];if(!g)return;
+  dbUpdate(`nerfGames/${gameId}`,{settled:true,winner:winTeam});
+  const winners=winTeam==='A'?g.teamA:g.teamB;
+  showToast(`Team ${winTeam} wins $${g.pot}! 🔫`);
+}
+window.deleteNerfGame=function(id){dbSet(`nerfGames/${id}`,null);}
+
+function renderNerfGames(){
+  const el=document.getElementById('nerfGames');
+  if(!el)return;
+  const games=Object.values(R.nerfGames||{}).sort((a,b)=>a.ts-b.ts);
+  if(!games.length){el.innerHTML='';return;}
+  el.innerHTML=games.map(g=>{
+    const teamANames=(g.teamA||[]).map(id=>esc(pname(id))).join(' & ');
+    const teamBNames=(g.teamB||[]).map(id=>esc(pname(id))).join(' & ');
+    return `<div class="game-card-body" style="border-top:1px solid rgba(111,163,216,0.2)">
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+        <div style="display:flex;gap:6px">
+          <span class="tag" style="background:rgba(111,163,216,0.12);color:var(--blue);border:1px solid rgba(111,163,216,0.25)">$${g.pot} pot</span>
+          <span class="tag ${g.settled?'tag-green':'tag-dim'}">${g.format} · ${g.settled?'done':'active'}</span>
+        </div>
+        ${canInteract()?`<button class="btn btn-xs btn-outline" onclick="deleteNerfGame('${g.id}')">✕</button>`:''}
+      </div>
+      ${g.settled?
+        `<div style="font-size:13px;text-align:center;padding:8px 0">
+          🏆 <strong style="color:var(--gold)">${g.winner==='A'?teamANames:teamBNames}</strong> wins $${g.pot}
+        </div>`
+        :`<div style="display:flex;align-items:center;gap:8px">
+          <div style="flex:1;text-align:center">
+            <div style="font-size:11px;color:var(--red-light);margin-bottom:6px">🔴 ${teamANames}</div>
+            ${canInteract()?`<button class="btn btn-sm" style="width:100%;background:rgba(224,84,68,0.15);border:1px solid rgba(224,84,68,0.3);color:var(--red-light)" onclick="settleNerfMatch('${g.id}','A')">Wins</button>`:''}
+          </div>
+          <div style="font-size:12px;color:var(--text-muted);font-weight:700">vs</div>
+          <div style="flex:1;text-align:center">
+            <div style="font-size:11px;color:var(--blue);margin-bottom:6px">🔵 ${teamBNames}</div>
+            ${canInteract()?`<button class="btn btn-sm" style="width:100%;background:rgba(111,163,216,0.15);border:1px solid rgba(111,163,216,0.3);color:var(--blue)" onclick="settleNerfMatch('${g.id}','B')">Wins</button>`:''}
+          </div>
+        </div>`
+      }
+    </div>`;
+  }).join('');
 }
 
 // ── CASH PIÑATA ───────────────────────────────────────
