@@ -414,7 +414,7 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
     <button class="nav-tab" onclick="switchTab('drinks')" id="t-drinks">🍹 Drinks</button>
     <button class="nav-tab" onclick="switchTab('stats')" id="t-stats">Stats</button>
     <button class="nav-tab" onclick="switchTab('settle')" id="t-settle">Settle Up</button>
-    <button class="nav-tab host-only" onclick="switchTab('history')" id="t-history">History</button>
+    <button class="nav-tab" onclick="switchTab('history')" id="t-history">History</button>
   </nav>
 
   <div class="scroll">
@@ -1423,7 +1423,6 @@ function enterApp(){
   // Hide host-only elements for non-hosts
   if(!isHost()){
     document.querySelectorAll('.host-only').forEach(el=>el.style.display='none');
-    document.getElementById('t-history').style.display='none';
   }
   // Spectators: further restrict
   if(SESSION.role==='spectator'){
@@ -2853,13 +2852,113 @@ function renderHistory(){
   if(!nights.length){el.innerHTML='';empty.style.display='block';return;}
   empty.style.display='none';
   el.innerHTML=nights.map((night,i)=>{
-    const totalBI=Object.values(night.players||{}).reduce((s,p)=>s+(p.buyIns||0),0);
+    const players=Object.values(night.players||{});
+    const totalBI=players.reduce((s,p)=>s+(p.buyIns||0),0);
+    const buyIn=night.buyIn||25;
+    const totalPool=players.reduce((s,p)=>s+(p.buyIns||0)*(p.table===2?(night.buyIn2||buyIn):( night.buyIn1||buyIn)),0);
     const bets=Object.keys(night.bets||{}).length;
-    return `<div class="hist-card">
+    return `<div class="hist-card" onclick="showHistoryDetail(${i})">
       <div class="mono" style="font-size:13px;color:var(--gold);margin-bottom:4px">${esc(night.nightName)}</div>
-      <div style="font-size:12px;color:var(--text-dim)">${Object.keys(night.players||{}).length} players · ${bets} bets · $${totalBI*(night.buyIn||25)} pool</div>
+      <div style="font-size:12px;color:var(--text-dim)">${players.length} players · ${bets} bets · $${totalPool||totalBI*buyIn} pool</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Tap for full results →</div>
     </div>`;
   }).join('');
+}
+
+window.showHistoryDetail=function(idx){
+  const nights=Object.values(R.history||{}).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const night=nights[idx];if(!night)return;
+
+  const players=Object.values(night.players||{});
+  const bets=Object.values(night.bets||{});
+  const buyIn=night.buyIn||25;
+
+  // Compute balances for this night
+  function nightSideBal(pid){
+    let bal=0;
+    bets.filter(b=>b.settled).forEach(b=>{
+      const siders=b.siders||[];
+      if(b.winner==='proposer'){
+        if(b.proposer===pid)bal+=b.amount*(1+siders.length);
+        if(siders.includes(pid))bal+=b.amount;
+        if(b.acceptor===pid)bal-=b.amount*(1+siders.length);
+      }else{
+        if(b.acceptor===pid)bal+=b.amount*(1+siders.length);
+        if(b.proposer===pid)bal-=b.amount*(1+siders.length);
+        if(siders.includes(pid))bal-=b.amount;
+      }
+    });
+    return Math.round(bal*100)/100;
+  }
+  function nightChipNet(p){
+    if(p.chipTotal==null)return null;
+    const bi=p.table===2?(night.buyIn2||buyIn):(night.buyIn1||buyIn);
+    return p.chipTotal-(p.buyIns||0)*bi;
+  }
+
+  const entries=players.map(p=>{
+    const side=nightSideBal(p.id);
+    const chipNet=nightChipNet(p);
+    const combined=side+(chipNet||0);
+    return {p,side,chipNet,combined};
+  }).sort((a,b)=>b.combined-a.combined);
+
+  // Transfers
+  const bals={};players.forEach(p=>bals[p.id]=entries.find(e=>e.p.id===p.id)?.combined||0);
+  const payers=players.filter(p=>bals[p.id]<0).map(p=>({name:p.name,amt:-bals[p.id]}));
+  const receivers=players.filter(p=>bals[p.id]>0).map(p=>({name:p.name,amt:bals[p.id]}));
+  const txns=[];let pi=0,ri=0;
+  const _p=[...payers],_r=[...receivers];
+  while(pi<_p.length&&ri<_r.length){
+    const pay=_p[pi],rec=_r[ri];const amt=Math.min(pay.amt,rec.amt);
+    if(amt>0.01)txns.push({from:pay.name,to:rec.name,amt:Math.round(amt*100)/100});
+    pay.amt-=amt;rec.amt-=amt;if(pay.amt<0.01)pi++;if(rec.amt<0.01)ri++;
+  }
+
+  const totalPool=players.reduce((s,p)=>s+(p.buyIns||0)*(p.table===2?(night.buyIn2||buyIn):(night.buyIn1||buyIn)),0);
+  const medals=['🥇','🥈','🥉'];
+
+  // Build modal content
+  const modal=document.getElementById('endNightOverlay');
+  modal.querySelector('.modal-title').textContent=night.nightName;
+  modal.querySelector('p').innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+      <div style="background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.2);border-radius:8px;padding:10px">
+        <div class="label" style="margin-bottom:4px">Poker Pool</div>
+        <div class="mono" style="font-size:18px;color:var(--gold)">$${totalPool}</div>
+      </div>
+      <div style="background:rgba(76,175,130,0.07);border:1px solid rgba(76,175,130,0.2);border-radius:8px;padding:10px">
+        <div class="label" style="margin-bottom:4px">Side Bets</div>
+        <div class="mono" style="font-size:18px;color:var(--green)">${bets.length}</div>
+      </div>
+    </div>
+    <div class="label" style="margin-bottom:8px">Final Standings</div>
+    ${entries.map((e,i)=>{
+      const {p,side,chipNet,combined}=e;
+      const cls=combined>0?'val-pos':combined<0?'val-neg':'val-zero';
+      const str=combined>0?`+$${combined}`:combined<0?`-$${Math.abs(combined)}`:'$0';
+      const chipStr=chipNet!=null?(chipNet>=0?`+$${chipNet}`:`-$${Math.abs(chipNet)}`):'no cash-out';
+      const sideStr=side>=0?`+$${side}`:`-$${Math.abs(side)}`;
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border-dim)">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:16px">${i<3?medals[i]:i+1}</span>
+          <div>
+            <div style="font-size:13px;font-weight:600">${esc(p.name)}</div>
+            <div style="font-size:10px;color:var(--text-dim)">chips ${chipStr} · sides ${sideStr}</div>
+          </div>
+        </div>
+        <div class="mono ${cls}" style="font-size:16px">${str}</div>
+      </div>`;
+    }).join('')}
+    ${txns.length?`<div class="label" style="margin:12px 0 8px">Transfers</div>
+    ${txns.map(t=>`<div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0">
+      <span><span style="color:var(--red-light)">${esc(t.from)}</span> → <span style="color:var(--gold)">${esc(t.to)}</span></span>
+      <span class="mono val-pos">$${t.amt}</span>
+    </div>`).join('')}`:''}
+  `;
+  document.getElementById('endNightWarning').innerHTML='';
+  modal.querySelector('.modal-actions').innerHTML=`<button class="btn btn-outline btn-full" onclick="closeModal('endNightOverlay')">Close</button>`;
+  modal.style.display='flex';
 }
 
 // ── DRINKS ────────────────────────────────────────────
