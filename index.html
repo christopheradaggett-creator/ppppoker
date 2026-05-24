@@ -4185,6 +4185,7 @@ function renderLinkedBets(gameType, gameId){
         <div style="text-align:center">
           <div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:3px">${esc(pn)} bets</div>
           <div style="font-size:12px;font-weight:700;color:${proposerWon?'var(--green)':b.settled?'var(--text-dim)':'var(--gold)'};margin-bottom:2px">${esc(pSide||pn)}</div>
+          <div class="mono" style="font-size:11px;color:var(--text-muted)">put up $${b.amount}</div>
           <div class="mono" style="font-size:12px;color:${proposerWon?'var(--green)':'var(--text-muted)'}">
             ${proposerWon?`✓ +$${proposerWins}`:`+$${proposerWins} to win`}
           </div>
@@ -4194,13 +4195,15 @@ function renderLinkedBets(gameType, gameId){
           ${an?`
             <div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:3px">${esc(an)} bets</div>
             <div style="font-size:12px;font-weight:700;color:${takerWon?'var(--green)':b.settled?'var(--text-dim)':'var(--blue)'};margin-bottom:2px">${esc(tSide||an)}</div>
+            <div class="mono" style="font-size:11px;color:var(--text-muted)">put up $${takerWins}</div>
             <div class="mono" style="font-size:12px;color:${takerWon?'var(--green)':'var(--text-muted)'}">
-              ${takerWon?`✓ +$${takerWins}`:`+$${takerWins} to win`}
+              ${takerWon?`✓ +$${proposerWins}`:`+$${proposerWins} to win`}
             </div>
           `:isOpen&&!isMe?`
             <div style="padding-top:12px">
               <div style="font-size:10px;color:var(--text-muted);margin-bottom:4px">Bet on ${esc(tSide||'other side')}</div>
-              <div class="mono" style="font-size:11px;color:var(--green)">+$${takerWins} to win${!isEven?` (${oddsD}:${oddsN})`:''}  </div>
+              <div class="mono" style="font-size:11px;color:var(--text)">Put up $${takerWins}</div>
+              <div class="mono" style="font-size:11px;color:var(--green)">Win +$${proposerWins}${!isEven?` (${oddsD}:${oddsN})`:''}  </div>
               <button class="btn btn-xs btn-green" style="margin-top:6px;width:100%" onclick="takeSpecBet('${b.id}')">Take it</button>
             </div>
           `:`<div style="padding-top:16px;font-size:11px;color:var(--text-muted);font-style:italic">open…</div>`}
