@@ -2585,66 +2585,95 @@ function renderBets(){
   empty.style.display='none';
   const pending=bets.filter(b=>!b.settled);const settled=bets.filter(b=>b.settled);
   list.innerHTML=[...pending,...settled].map(b=>{
-    const pn=pname(b.proposer),an=b.acceptor?pname(b.acceptor):'?';
-    const siderTags=(b.siders||[]).map(s=>`<span class="tag tag-blue">${esc(pname(s))}</span>`).join('');
+    const pn=pname(b.proposer);
+    const an=b.acceptor?pname(b.acceptor):null;
     const oddsN=b.oddsN||1, oddsD=b.oddsD||1;
     const isEven=oddsN===1&&oddsD===1;
     const isOpen=b.open&&!b.acceptor;
     const isMe=b.proposer===SESSION.playerId;
-    const iAmTaker=b.acceptor===SESSION.playerId;
 
-    // For open linked bets, compute what taker would get
-    let takerContext='';
-    if(isOpen&&!isMe&&b.linkedGame){
-      const gameType=b.linkedGame.type;
-      const gameId=b.linkedGame.id;
-      const g=R[`${gameType}Games`]?.[gameId];
-      let oppLabel='the other side';
-      if(gameType==='nerf'&&g){
+    // Payout amounts
+    const proposerWins=Math.round(b.amount*oddsN/oddsD*100)/100;
+    const takerWins=b.amount;
+
+    // Side labels for linked bets
+    let proposerSide='', takerSide='';
+    if(b.linkedGame){
+      const g=R[`${b.linkedGame.type}Games`]?.[b.linkedGame.id];
+      if(b.linkedGame.type==='nerf'&&g){
         const aNames=(g.teamA||[]).map(id=>pname(id)).join(' & ');
         const bNames=(g.teamB||[]).map(id=>pname(id)).join(' & ');
-        oppLabel=b.linkedGame.side==='A'?`🔵 ${bNames}`:`🔴 ${aNames}`;
-      }else if((gameType==='n64'||gameType==='race')&&g){
-        const allPlayers=gameType==='n64'?(g.players||[]):(g.runners||[]);
-        oppLabel=allPlayers.filter(pid=>pid!==b.linkedGame.side).map(id=>pname(id)).join(' or ');
+        proposerSide=b.linkedGame.side==='A'?`🔴 ${aNames}`:`🔵 ${bNames}`;
+        takerSide=b.linkedGame.side==='A'?`🔵 ${bNames}`:`🔴 ${aNames}`;
+      }else if((b.linkedGame.type==='n64'||b.linkedGame.type==='race')&&g){
+        const all=b.linkedGame.type==='n64'?(g.players||[]):(g.runners||[]);
+        proposerSide=pname(b.linkedGame.side);
+        takerSide=all.filter(pid=>pid!==b.linkedGame.side).map(id=>pname(id)).join('/');
       }
-      const proposerWins=Math.round(b.amount*oddsN/oddsD*100)/100;
-      takerContext=`<div style="background:rgba(76,175,130,0.07);border:1px solid rgba(76,175,130,0.2);border-radius:6px;padding:7px 9px;margin:6px 0;font-size:12px">
-        <div style="color:var(--green);font-weight:600;margin-bottom:2px">You'd be betting on: ${esc(oppLabel)}</div>
-        <div style="color:var(--text-dim)">You put up <span style="color:var(--text)">$${b.amount}</span> · you win <span style="color:var(--green)">$${proposerWins}</span> if they win${!isEven?` (${oddsD}:${oddsN} your way)`:''}</div>
-      </div>`;
     }
 
+    // Build the two-column bettor display
+    const proposerWon=b.settled&&b.winner==='proposer';
+    const takerWon=b.settled&&b.winner==='acceptor';
+
+    const betторRow=`<div style="display:grid;grid-template-columns:1fr auto 1fr;gap:6px;align-items:center;margin:10px 0">
+      <!-- Proposer side -->
+      <div style="text-align:center">
+        <div style="font-size:13px;font-weight:700;color:${proposerWon?'var(--green)':b.settled?'var(--text-dim)':'var(--gold)'}">${esc(pn)}</div>
+        ${proposerSide?`<div style="font-size:10px;color:var(--text-dim);margin-top:2px">${esc(proposerSide)}</div>`:''}
+        <div style="font-family:'DM Mono',monospace;font-size:12px;color:${proposerWon?'var(--green)':'var(--text-muted)'};margin-top:3px">
+          ${proposerWon?`✓ +$${proposerWins}`:`+$${proposerWins} if win`}
+        </div>
+      </div>
+      <!-- VS -->
+      <div style="font-size:11px;color:var(--text-muted);font-weight:600">vs</div>
+      <!-- Taker side -->
+      <div style="text-align:center">
+        ${an?`
+          <div style="font-size:13px;font-weight:700;color:${takerWon?'var(--green)':b.settled?'var(--text-dim)':'var(--blue)'}">${esc(an)}</div>
+          ${takerSide?`<div style="font-size:10px;color:var(--text-dim);margin-top:2px">${esc(takerSide)}</div>`:''}
+          <div style="font-family:'DM Mono',monospace;font-size:12px;color:${takerWon?'var(--green)':'var(--text-muted)'};margin-top:3px">
+            ${takerWon?`✓ +$${takerWins}`:`+$${takerWins} if win`}
+          </div>
+        `:`<div style="font-size:12px;color:var(--text-muted);font-style:italic">open</div>`}
+      </div>
+    </div>`;
+
     // Footer
-    let footer;
+    let footer='';
     if(isOpen&&!isMe){
-      footer=`${takerContext}<div class="card-footer"><button class="btn btn-green btn-full" onclick="takeSpecBet('${b.id}')">Take this bet</button></div>`;
+      let takerContext='';
+      if(b.linkedGame&&takerSide){
+        takerContext=`<div style="font-size:11px;color:var(--text-dim);margin-bottom:6px;text-align:center">You'd be betting on <strong style="color:var(--blue)">${esc(takerSide)}</strong> · win <span style="color:var(--green)">+$${takerWins}</span>${!isEven?` (${oddsD}:${oddsN} your way)`:''}</div>`;
+      }
+      footer=`<div class="card-footer" style="flex-direction:column;align-items:stretch">${takerContext}<button class="btn btn-green btn-full" onclick="takeSpecBet('${b.id}')">Take this bet</button></div>`;
     }else if(isOpen&&isMe){
       footer=`<div class="card-footer"><span style="font-size:12px;color:var(--text-muted)">Waiting for a taker…</span></div>`;
-    }else if(!b.settled&&canInteract()){
-      const oddsStr=!isEven?` (${oddsN}:${oddsD})`:'';
+    }else if(!b.settled&&b.acceptor&&canInteract()){
       footer=`<div class="card-footer">
         <button class="btn btn-green btn-sm" style="flex:1" onclick="settleBet('${b.id}','proposer')">🟡 ${esc(pn)} wins</button>
         <button class="btn btn-green btn-sm" style="flex:1" onclick="settleBet('${b.id}','acceptor')">🟢 ${esc(an)} wins</button>
         <button class="btn btn-outline btn-sm" onclick="deleteBet('${b.id}')">🗑</button>
       </div>`;
+    }else if(!b.settled&&canInteract()){
+      footer=`<div class="card-footer"><button class="btn btn-outline btn-sm" onclick="deleteBet('${b.id}')">🗑</button></div>`;
     }else if(b.settled){
       const wn=b.winner==='proposer'?pn:an;
-      const proposerWins=Math.round(b.amount*oddsN/oddsD*100)/100;
-      const takerWins=b.amount;
-      const winAmt=b.winner==='proposer'?proposerWins:takerWins;
-      footer=`<div class="card-footer"><span style="font-size:12px;color:var(--text-dim)">✓ <strong style="color:var(--green)">${esc(wn)}</strong> won $${winAmt}</span></div>`;
-    }else{footer='';}
+      footer=`<div class="card-footer"><span style="font-size:12px;color:var(--text-dim)">✓ <strong style="color:var(--green)">${esc(wn)}</strong> won $${b.winner==='proposer'?proposerWins:takerWins}</span></div>`;
+    }
 
-    const oddsTag=!isEven?`<span class="tag tag-dim">${oddsN}:${oddsD}</span>`:'';
     return `<div class="card">
-      <div class="card-header"><span style="font-weight:600;font-size:14px">${esc(b.desc)}</span><span class="mono val-gold">$${b.amount}</span></div>
-      <div class="card-body" style="padding-top:10px;padding-bottom:6px">
-        <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
-          <span class="tag tag-gold">${esc(pn)}</span><span style="color:var(--text-muted);font-size:11px">vs</span>
-          <span class="tag tag-green">${isOpen?'open':esc(an)}</span>${siderTags}${oddsTag}
-          ${b.settled?'<span class="tag tag-dim" style="margin-left:auto">settled</span>':''}
+      <div class="card-header">
+        <span style="font-weight:600;font-size:14px">${esc(b.desc)}</span>
+        <div style="display:flex;align-items:center;gap:6px">
+          ${!isEven?`<span class="tag tag-dim">${oddsN}:${oddsD}</span>`:''}
+          <span class="mono val-gold">$${b.amount}</span>
+          ${b.settled?'<span class="tag tag-dim">settled</span>':''}
         </div>
+      </div>
+      <div class="card-body" style="padding-top:4px;padding-bottom:4px">
+        ${betторRow}
+        ${(b.siders||[]).length?`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${(b.siders||[]).map(s=>`<span class="tag tag-blue">${esc(pname(s))}</span>`).join('')}</div>`:''}
       </div>${footer}
     </div>`;
   }).join('');
