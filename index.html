@@ -2139,33 +2139,43 @@ window.closeNightFinal = async function(){
   if(archBtn){archBtn.textContent='Archiving…';archBtn.disabled=true;}
 
   try{
+    showToast('Step 1: Reading room data…');
     const histId=uid();
     const snap=await db.ref(`rooms/${SESSION.roomCode}`).once('value');
     const nightData=snap.val();
+    console.log('Room data read OK');
+
+    // Deep sanitize — Firebase rejects any undefined values anywhere in the tree
+    function sanitize(obj){
+      if(obj===null||obj===undefined) return null;
+      if(typeof obj !== 'object') return obj;
+      if(Array.isArray(obj)) return obj.map(sanitize);
+      const out={};
+      Object.keys(obj).forEach(k=>{
+        const v=sanitize(obj[k]);
+        if(v!==undefined) out[k]=v;
+      });
+      return out;
+    }
 
     // Archive history
+    showToast('Step 2: Saving history…');
     try{
-      await db.ref(`rooms/${SESSION.roomCode}/history/${histId}`).set({
+      await db.ref(`rooms/${SESSION.roomCode}/history/${histId}`).set(sanitize({
         nightName:R.nightName, date:new Date().toISOString(),
-        buyIn:R.buyIn, buyIn1:R.buyIn1, buyIn2:R.buyIn2,
-        players:nightData.players, bets:nightData.bets,
-        nitGames:nightData.nitGames, lowGames:nightData.lowGames,
-        n64Games:nightData.n64Games, raceGames:nightData.raceGames
-      });
-    }catch(e){ console.error('Archive history failed',e); }
+        buyIn:R.buyIn||25, buyIn1:R.buyIn1||R.buyIn||25, buyIn2:R.buyIn2||R.buyIn||25,
+        players:nightData.players||{},
+        bets:nightData.bets||{},
+        nitGames:nightData.nitGames||{},
+        lowGames:nightData.lowGames||{},
+        n64Games:nightData.n64Games||{},
+        raceGames:nightData.raceGames||{}
+      }));
+      console.log('History saved OK');
+    }catch(e){ console.error('Archive history failed',e); showToast('History save failed: '+e.message); }
 
-    // Update lifetime stats (non-blocking)
-    try{
-      await updateLifetimeStats({
-        nightName:R.nightName, date:new Date().toISOString(), buyIn:R.buyIn,
-        players:nightData.players, bets:nightData.bets,
-        nitGames:nightData.nitGames, lowGames:nightData.lowGames,
-        n64Games:nightData.n64Games, raceGames:nightData.raceGames,
-        hotdogOrders:nightData.hotdogOrders
-      });
-    }catch(e){ console.error('Stats update failed',e); }
-
-    // Reset room — this must succeed
+    // Skip lifetime stats for now — do it async after reset
+    showToast('Step 3: Resetting room…');
     const d=new Date();
     const newNight=d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
     const resetUpd={
@@ -2179,10 +2189,20 @@ window.closeNightFinal = async function(){
       resetUpd[`players/${pid}/cashedOut`]=false;
     });
     await db.ref(`rooms/${SESSION.roomCode}`).update(resetUpd);
+    console.log('Room reset OK');
+
+    // Update lifetime stats in background — don't await
+    updateLifetimeStats({
+      nightName:R.nightName, date:new Date().toISOString(), buyIn:R.buyIn,
+      players:nightData.players, bets:nightData.bets,
+      nitGames:nightData.nitGames, lowGames:nightData.lowGames,
+      n64Games:nightData.n64Games, raceGames:nightData.raceGames,
+      hotdogOrders:nightData.hotdogOrders
+    }).catch(e=>console.error('Stats update failed (non-blocking)',e));
 
   }catch(e){
     console.error('Archive failed',e);
-    showToast('Archive failed — check console');
+    showToast('Archive failed: '+e.message);
     if(archBtn){archBtn.textContent='Archive & Start Fresh';archBtn.disabled=false;}
     return;
   }
