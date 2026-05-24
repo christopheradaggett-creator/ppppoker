@@ -1186,6 +1186,7 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
       <button class="override-tab" onclick="switchOverrideTab('games')" id="ot-games">Games</button>
       <button class="override-tab" onclick="switchOverrideTab('adjustments')" id="ot-adjustments">Adjustments</button>
       <button class="override-tab" onclick="switchOverrideTab('menu')" id="ot-menu">Drink Menu</button>
+      <button class="override-tab" onclick="switchOverrideTab('pinata')" id="ot-pinata">Piñata</button>
     </div>
     <div id="ov-players" class="ov-section"></div>
     <div id="ov-bets" class="ov-section" style="display:none"></div>
@@ -1206,6 +1207,11 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
       <button class="btn btn-gold btn-full" onclick="applyAdjustment()">Apply Adjustment</button>
       <div class="label" style="margin-top:14px;margin-bottom:8px">Existing Adjustments</div>
       <div id="adjList"></div>
+      <div style="margin-top:20px;border-top:1px solid var(--border-dim);padding-top:14px">
+        <div class="label" style="margin-bottom:8px;color:var(--red-light)">Danger Zone</div>
+        <button class="btn btn-danger btn-full" onclick="confirmClearHistory()" style="margin-bottom:8px">🗑 Clear Game History</button>
+        <button class="btn btn-danger btn-full" onclick="confirmClearStats()">🗑 Clear All-Time Stats</button>
+      </div>
     </div>
     <div id="ov-menu" class="ov-section" style="display:none">
       <div style="font-size:12px;color:var(--text-dim);margin-bottom:14px;line-height:1.5">Add, remove, or rename drinks. Changes apply immediately to the order screen.</div>
@@ -1213,6 +1219,18 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
       <div class="row">
         <input class="field" id="newMenuItemInput" placeholder="e.g. Negroni" maxlength="40" onkeydown="if(event.key==='Enter')addMenuItem()">
         <button class="btn btn-gold btn-sm" onclick="addMenuItem()">Add</button>
+      </div>
+    </div>
+    <div id="ov-pinata" class="ov-section" style="display:none">
+      <div style="font-size:12px;color:var(--text-dim);margin-bottom:16px;line-height:1.5">Rename the two premium weapons available for auction. Changes apply to the next piñata setup.</div>
+      <div class="ov-row">
+        <div class="ov-row-title">🏏 Weapon 1 (Mid-tier)</div>
+        <div class="ov-field-row"><label>Name</label><input id="ovW1Name" maxlength="20" placeholder="Bat"></div>
+        <div class="ov-actions"><button class="btn btn-gold btn-sm" onclick="savePinataWeapons()">Save Weapons</button></div>
+      </div>
+      <div class="ov-row">
+        <div class="ov-row-title">🔧 Weapon 2 (Premium)</div>
+        <div class="ov-field-row"><label>Name</label><input id="ovW2Name" maxlength="20" placeholder="Crowbar"></div>
       </div>
     </div>
   </div>
@@ -2969,7 +2987,8 @@ function renderHistory(){
   const empty=document.getElementById('historyEmpty');
   // Read directly from Firebase to avoid cache issues
   db.ref(`rooms/${SESSION.roomCode}/history`).once('value').then(snap=>{
-    const nights=Object.values(snap.val()||{}).sort((a,b)=>new Date(b.date)-new Date(a.date));
+    const raw=snap.val()||{};
+    const nights=Object.entries(raw).map(([k,v])=>({...v,_key:k})).sort((a,b)=>new Date(b.date)-new Date(a.date));
   if(!nights.length){el.innerHTML='';empty.style.display='block';return;}
   empty.style.display='none';
   let _historyNights=[];
@@ -2980,10 +2999,13 @@ function renderHistory(){
     const buyIn=night.buyIn||25;
     const totalPool=players.reduce((s,p)=>s+(p.buyIns||0)*(p.table===2?(night.buyIn2||buyIn):(night.buyIn1||buyIn)),0);
     const bets=Object.keys(night.bets||{}).length;
-    return `<div class="hist-card" onclick="showHistoryDetail(${i})">
-      <div class="mono" style="font-size:13px;color:var(--gold);margin-bottom:4px">${esc(night.nightName)}</div>
-      <div style="font-size:12px;color:var(--text-dim)">${players.length} players · ${bets} bets · $${totalPool||totalBI*buyIn} pool</div>
-      <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Tap for full results →</div>
+    return `<div class="hist-card" style="position:relative">
+      <div onclick="showHistoryDetail(${i})">
+        <div class="mono" style="font-size:13px;color:var(--gold);margin-bottom:4px">${esc(night.nightName)} <span style="color:var(--text-muted);font-size:10px">${new Date(night.date).toLocaleDateString()}</span></div>
+        <div style="font-size:12px;color:var(--text-dim)">${players.length} players · ${bets} bets · $${totalPool||totalBI*buyIn} pool</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Tap for full results →</div>
+      </div>
+      ${isHost()?`<button onclick="event.stopPropagation();if(confirm('Delete this entry?'))deleteHistoryEntry(${i})" style="position:absolute;top:10px;right:10px;background:none;border:none;color:var(--text-muted);font-size:14px;cursor:pointer">✕</button>`:''}
     </div>`;
   }).join('');
   window._historyNights=_historyNights;
@@ -3207,6 +3229,19 @@ window.switchOverrideTab = function(tab){
   if(tab==='games') renderOvGames();
   if(tab==='adjustments') renderOvAdjustments();
   if(tab==='menu') renderOvMenu();
+  if(tab==='pinata') renderOvPinata();
+}
+
+function renderOvPinata(){
+  const w=getPinataWeapons();
+  document.getElementById('ovW1Name').value=w.bat.name||'Bat';
+  document.getElementById('ovW2Name').value=w.crowbar.name||'Crowbar';
+}
+window.savePinataWeapons=function(){
+  const w1=document.getElementById('ovW1Name').value.trim()||'Bat';
+  const w2=document.getElementById('ovW2Name').value.trim()||'Crowbar';
+  dbSet('pinataWeapons',{bat:{name:w1},crowbar:{name:w2}});
+  showToast('Weapon names saved');
 }
 
 function renderOvMenu(){
@@ -3422,7 +3457,30 @@ window.applyAdjustment = function(){
   document.getElementById('adjNote').value='';
   showToast('Adjustment applied');
 }
-window.deleteAdjustment = function(id){ dbSet(`adjustments/${id}`,null);renderOvAdjustments(); }
+window.confirmClearHistory=function(){
+  if(!confirm('Clear ALL game history for this room? This cannot be undone.'))return;
+  db.ref(`rooms/${SESSION.roomCode}/history`).remove();
+  window._historyNights=[];
+  showToast('Game history cleared');
+  renderHistory();
+}
+window.confirmClearStats=function(){
+  if(!confirm('Clear ALL all-time stats for ALL players? This cannot be undone.'))return;
+  db.ref('profiles').once('value').then(snap=>{
+    const keys=Object.keys(snap.val()||{});
+    const upd={};
+    keys.forEach(k=>{upd[`${k}/stats`]=emptyStats();upd[`${k}/gameHistory`]=null;});
+    db.ref('profiles').update(upd);
+    showToast('All-time stats cleared');
+  });
+}
+window.deleteHistoryEntry=function(idx){
+  const night=window._historyNights&&window._historyNights[idx];
+  if(!night||!night._key)return;
+  db.ref(`rooms/${SESSION.roomCode}/history/${night._key}`).remove();
+  showToast('Entry deleted');
+  renderHistory();
+}
 
 // ── PROFILES & LIFETIME STATS ─────────────────────────
 async function registerProfile(username, firstName, lastName, favCocktail=''){
