@@ -1347,17 +1347,31 @@ async function tryAutoRejoin(){
     if(!raw) return showStep('joinStep1');
     const saved=JSON.parse(raw);
     if(!saved.roomCode || Date.now()-saved.savedAt > 86400000){ clearSession(); return showStep('joinStep1'); }
-    const snap=await db.ref(`rooms/${saved.roomCode}`).once('value');
+
+    let snap;
+    try{
+      snap=await db.ref(`rooms/${saved.roomCode}`).once('value');
+    }catch(e){
+      // Network/auth error — still show rejoin, don't clear session
+      console.warn('Firebase read failed in tryAutoRejoin:', e.message);
+      window._savedSession=saved;
+      document.getElementById('rejoinTitle').textContent=`Welcome back, ${esc(saved.playerName||'there')}`;
+      document.getElementById('rejoinSub').textContent=`Room ${saved.roomCode} · ${saved.role}`;
+      return showStep('joinStep0');
+    }
+
     if(!snap.exists()){ clearSession(); return showStep('joinStep1'); }
     const room=snap.val();
     const playerInRoom=saved.playerId && room.players && room.players[saved.playerId];
     if(!playerInRoom && saved.role!=='host'){ clearSession(); return showStep('joinStep1'); }
     window._savedSession=saved;
-    const name=saved.playerName||'there';
-    document.getElementById('rejoinTitle').textContent=`Welcome back, ${esc(name)}`;
+    document.getElementById('rejoinTitle').textContent=`Welcome back, ${esc(saved.playerName||'there')}`;
     document.getElementById('rejoinSub').textContent=`Room ${saved.roomCode} · ${saved.role}`;
     showStep('joinStep0');
-  }catch(e){ showStep('joinStep1'); }
+  }catch(e){
+    console.error('tryAutoRejoin error:', e);
+    showStep('joinStep1');
+  }
 }
 
 window.doRejoin = function(){
@@ -2121,41 +2135,58 @@ window.launchCeremony = async function(){
 }
 
 window.closeNightFinal = async function(){
-  // Show loading state on archive button
   const archBtn=document.getElementById('cArchive');
   if(archBtn){archBtn.textContent='Archiving…';archBtn.disabled=true;}
 
-  const histId=uid();
-  const snap=await db.ref(`rooms/${SESSION.roomCode}`).once('value');
-  const nightData=snap.val();
-  await db.ref(`rooms/${SESSION.roomCode}/history/${histId}`).set({
-    nightName:R.nightName,date:new Date().toISOString(),buyIn:R.buyIn,buyIn1:R.buyIn1,buyIn2:R.buyIn2,
-    players:nightData.players,bets:nightData.bets,
-    nitGames:nightData.nitGames,lowGames:nightData.lowGames,
-    n64Games:nightData.n64Games,raceGames:nightData.raceGames
-  });
+  try{
+    const histId=uid();
+    const snap=await db.ref(`rooms/${SESSION.roomCode}`).once('value');
+    const nightData=snap.val();
 
-  // Update lifetime stats
-  await updateLifetimeStats({
-    nightName:R.nightName, date:new Date().toISOString(), buyIn:R.buyIn,
-    players:nightData.players, bets:nightData.bets,
-    nitGames:nightData.nitGames, lowGames:nightData.lowGames,
-    n64Games:nightData.n64Games, raceGames:nightData.raceGames,
-    hotdogOrders:nightData.hotdogOrders
-  });
+    // Archive history
+    try{
+      await db.ref(`rooms/${SESSION.roomCode}/history/${histId}`).set({
+        nightName:R.nightName, date:new Date().toISOString(),
+        buyIn:R.buyIn, buyIn1:R.buyIn1, buyIn2:R.buyIn2,
+        players:nightData.players, bets:nightData.bets,
+        nitGames:nightData.nitGames, lowGames:nightData.lowGames,
+        n64Games:nightData.n64Games, raceGames:nightData.raceGames
+      });
+    }catch(e){ console.error('Archive history failed',e); }
 
-  // Reset room
-  const d=new Date();
-  const newNight=d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
-  const resetUpd={nightName:newNight,bets:null,nitGames:null,lowGames:null,n64Games:null,raceGames:null,ceremony:null,pinataGames:null,activePinata:null,hotdogOrders:null,buyInRequests:null,adjustments:null};
-  Object.keys(R.players||{}).forEach(pid=>{
-    resetUpd[`players/${pid}/buyIns`]=0;
-    resetUpd[`players/${pid}/chipTotal`]=null;
-    resetUpd[`players/${pid}/cashedOut`]=false;
-  });
-  await db.ref(`rooms/${SESSION.roomCode}`).update(resetUpd);
+    // Update lifetime stats (non-blocking)
+    try{
+      await updateLifetimeStats({
+        nightName:R.nightName, date:new Date().toISOString(), buyIn:R.buyIn,
+        players:nightData.players, bets:nightData.bets,
+        nitGames:nightData.nitGames, lowGames:nightData.lowGames,
+        n64Games:nightData.n64Games, raceGames:nightData.raceGames,
+        hotdogOrders:nightData.hotdogOrders
+      });
+    }catch(e){ console.error('Stats update failed',e); }
 
-  // Close ceremony and go to leaderboard
+    // Reset room — this must succeed
+    const d=new Date();
+    const newNight=d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+    const resetUpd={
+      nightName:newNight, bets:null, nitGames:null, lowGames:null,
+      n64Games:null, raceGames:null, ceremony:null, pinataGames:null,
+      activePinata:null, hotdogOrders:null, buyInRequests:null, adjustments:null
+    };
+    Object.keys(R.players||{}).forEach(pid=>{
+      resetUpd[`players/${pid}/buyIns`]=0;
+      resetUpd[`players/${pid}/chipTotal`]=null;
+      resetUpd[`players/${pid}/cashedOut`]=false;
+    });
+    await db.ref(`rooms/${SESSION.roomCode}`).update(resetUpd);
+
+  }catch(e){
+    console.error('Archive failed',e);
+    showToast('Archive failed — check console');
+    if(archBtn){archBtn.textContent='Archive & Start Fresh';archBtn.disabled=false;}
+    return;
+  }
+
   document.getElementById('ceremonyOverlay').style.display='none';
   showToast('Game archived 📖');
   switchTab('board');
