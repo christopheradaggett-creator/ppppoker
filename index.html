@@ -2580,7 +2580,8 @@ window.deleteBet=function(id){ dbSet(`bets/${id}`,null); }
 
 function renderBets(){
   const list=document.getElementById('betsList');const empty=document.getElementById('betsEmpty');
-  const bets=Object.values(R.bets||{}).sort((a,b)=>a.ts-b.ts);
+  // Linked bets show on game cards — only show free-form bets here
+  const bets=Object.values(R.bets||{}).filter(b=>!b.linkedGame).sort((a,b)=>a.ts-b.ts);
   if(!bets.length){list.innerHTML='';empty.style.display='block';return;}
   empty.style.display='none';
   const open=bets.filter(b=>!b.settled&&b.open&&!b.acceptor);
@@ -2611,55 +2612,67 @@ function renderBets(){
     const proposerWins=Math.round(b.amount*oddsN/oddsD*100)/100;
     const takerWins=b.amount;
 
-    // Side labels for linked bets
-    let proposerSide='', takerSide='';
+    // Game context line for linked bets
+    let gameContext='';
+    let fullProposerSide='', fullTakerSide='';
     if(b.linkedGame){
-      const g=R[`${b.linkedGame.type}Games`]?.[b.linkedGame.id];
-      if(b.linkedGame.type==='nerf'&&g){
+      const gt=b.linkedGame.type;
+      const g=R[`${gt}Games`]?.[b.linkedGame.id];
+      if(gt==='nerf'&&g){
         const aNames=(g.teamA||[]).map(id=>pname(id)).join(' & ');
         const bNames=(g.teamB||[]).map(id=>pname(id)).join(' & ');
-        proposerSide=b.linkedGame.side==='A'?`🔴 ${aNames}`:`🔵 ${bNames}`;
-        takerSide=b.linkedGame.side==='A'?`🔵 ${bNames}`:`🔴 ${aNames}`;
-      }else if((b.linkedGame.type==='n64'||b.linkedGame.type==='race')&&g){
-        const all=b.linkedGame.type==='n64'?(g.players||[]):(g.runners||[]);
-        proposerSide=pname(b.linkedGame.side);
-        takerSide=all.filter(pid=>pid!==b.linkedGame.side).map(id=>pname(id)).join('/');
+        gameContext=`🔴 ${aNames}  vs  🔵 ${bNames}`;
+        fullProposerSide=b.linkedGame.side==='A'?`🔴 ${aNames}`:`🔵 ${bNames}`;
+        fullTakerSide=b.linkedGame.side==='A'?`🔵 ${bNames}`:`🔴 ${aNames}`;
+      }else if(gt==='n64'&&g){
+        const all=g.players||[];
+        gameContext=`🎮 ${g.game}: ${all.map(id=>pname(id)).join(' vs ')}`;
+        fullProposerSide=pname(b.linkedGame.side);
+        fullTakerSide=all.filter(pid=>pid!==b.linkedGame.side).map(id=>pname(id)).join(' / ');
+      }else if(gt==='race'&&g){
+        gameContext=`🏃 Race: ${(g.runners||[]).map(id=>pname(id)).join(' vs ')}`;
+        fullProposerSide=pname(b.linkedGame.side);
+        fullTakerSide=(g.runners||[]).filter(pid=>pid!==b.linkedGame.side).map(id=>pname(id)).join(' / ');
       }
     }
 
-    // Build the two-column bettor display
+    // Build card body
     const proposerWon=b.settled&&b.winner==='proposer';
     const takerWon=b.settled&&b.winner==='acceptor';
 
-    const bettorRow=`<div style="display:grid;grid-template-columns:1fr auto 1fr;gap:6px;align-items:center;margin:10px 0">
-      <!-- Proposer side -->
-      <div style="text-align:center">
-        <div style="font-size:13px;font-weight:700;color:${proposerWon?'var(--green)':b.settled?'var(--text-dim)':'var(--gold)'}">${esc(pn)}</div>
-        ${proposerSide?`<div style="font-size:10px;color:var(--text-dim);margin-top:2px">${esc(proposerSide)}</div>`:''}
-        <div style="font-family:'DM Mono',monospace;font-size:12px;color:${proposerWon?'var(--green)':'var(--text-muted)'};margin-top:3px">
-          ${proposerWon?`✓ +$${proposerWins}`:`+$${proposerWins} if win`}
+    const bettorRow=`
+      ${gameContext?`<div style="font-size:11px;color:var(--text-dim);text-align:center;padding:6px 0;border-bottom:1px solid var(--border-dim);margin-bottom:10px">${esc(gameContext)}</div>`:''}
+      <div style="display:grid;grid-template-columns:1fr 24px 1fr;gap:4px;align-items:start">
+        <!-- Proposer -->
+        <div style="text-align:center">
+          <div style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px">${esc(pn)} bets on</div>
+          <div style="font-size:13px;font-weight:700;color:${proposerWon?'var(--green)':b.settled?'var(--text-dim)':'var(--gold)'};margin-bottom:4px">${fullProposerSide||esc(pn)}</div>
+          <div style="font-family:'DM Mono',monospace;font-size:13px;color:${proposerWon?'var(--green)':'var(--text-muted)'}">
+            ${proposerWon?`✓ +$${proposerWins}`:`+$${proposerWins} to win`}
+          </div>
+        </div>
+        <!-- VS -->
+        <div style="text-align:center;padding-top:18px;font-size:10px;color:var(--text-muted);font-weight:600">vs</div>
+        <!-- Taker -->
+        <div style="text-align:center">
+          ${an?`
+            <div style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px">${esc(an)} bets on</div>
+            <div style="font-size:13px;font-weight:700;color:${takerWon?'var(--green)':b.settled?'var(--text-dim)':'var(--blue)'};margin-bottom:4px">${fullTakerSide||esc(an)}</div>
+            <div style="font-family:'DM Mono',monospace;font-size:13px;color:${takerWon?'var(--green)':'var(--text-muted)'}">
+              ${takerWon?`✓ +$${takerWins}`:`+$${takerWins} to win`}
+            </div>
+          `:`<div style="padding-top:18px;font-size:12px;color:var(--text-muted);font-style:italic">open</div>`}
         </div>
       </div>
-      <!-- VS -->
-      <div style="font-size:11px;color:var(--text-muted);font-weight:600">vs</div>
-      <!-- Taker side -->
-      <div style="text-align:center">
-        ${an?`
-          <div style="font-size:13px;font-weight:700;color:${takerWon?'var(--green)':b.settled?'var(--text-dim)':'var(--blue)'}">${esc(an)}</div>
-          ${takerSide?`<div style="font-size:10px;color:var(--text-dim);margin-top:2px">${esc(takerSide)}</div>`:''}
-          <div style="font-family:'DM Mono',monospace;font-size:12px;color:${takerWon?'var(--green)':'var(--text-muted)'};margin-top:3px">
-            ${takerWon?`✓ +$${takerWins}`:`+$${takerWins} if win`}
-          </div>
-        `:`<div style="font-size:12px;color:var(--text-muted);font-style:italic">open</div>`}
-      </div>
-    </div>`;
+      ${(b.siders||[]).length?`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;justify-content:center">${(b.siders||[]).map(s=>`<span class="tag tag-blue">${esc(pname(s))}</span>`).join('')}</div>`:''}
+    `;
 
     // Footer
     let footer='';
     if(isOpen&&!isMe){
       let takerContext='';
-      if(b.linkedGame&&takerSide){
-        takerContext=`<div style="font-size:11px;color:var(--text-dim);margin-bottom:6px;text-align:center">You'd be betting on <strong style="color:var(--blue)">${esc(takerSide)}</strong> · win <span style="color:var(--green)">+$${takerWins}</span>${!isEven?` (${oddsD}:${oddsN} your way)`:''}</div>`;
+      if(b.linkedGame&&fullTakerSide){
+        takerContext=`<div style="font-size:11px;color:var(--text-dim);margin-bottom:6px;text-align:center">You'd be betting on <strong style="color:var(--blue)">${esc(fullTakerSide)}</strong> · win <span style="color:var(--green)">+$${takerWins}</span>${!isEven?` (${oddsD}:${oddsN} your way)`:''}</div>`;
       }
       footer=`<div class="card-footer" style="flex-direction:column;align-items:stretch">${takerContext}<button class="btn btn-green btn-full" onclick="takeSpecBet('${b.id}')">Take this bet</button></div>`;
     }else if(isOpen&&isMe){
@@ -2688,7 +2701,6 @@ function renderBets(){
       </div>
       <div class="card-body" style="padding-top:4px;padding-bottom:4px">
         ${bettorRow}
-        ${(b.siders||[]).length?`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${(b.siders||[]).map(s=>`<span class="tag tag-blue">${esc(pname(s))}</span>`).join('')}</div>`:''}
       </div>${footer}
     </div>`;
   }).join('');
@@ -4083,52 +4095,125 @@ function renderLinkedBets(gameType, gameId){
     b.linkedGame&&b.linkedGame.type===gameType&&b.linkedGame.id===gameId
   );
   if(!linked.length) return '';
-  return `<div style="margin-top:8px;border-top:1px solid var(--border-dim);padding-top:8px">
-    <div class="label" style="margin-bottom:6px">Side Bets on this game</div>
-    ${linked.map(b=>{
-      const isOpen=b.open&&!b.acceptor;
-      const isMe=b.proposer===SESSION.playerId;
-      const oddsN=b.oddsN||1, oddsD=b.oddsD||1;
-      const isEven=oddsN===1&&oddsD===1;
-      // What the proposer wins if their side wins
-      const proposerWins=Math.round(b.amount*oddsN/oddsD*100)/100;
-      // What the taker wins if their side wins
-      const takerWins=b.amount;
-      // Opposite side label
-      const g=R[`${gameType}Games`]?.[gameId];
-      let oppLabel='the other side';
-      if(gameType==='nerf'&&g){
-        const aNames=(g.teamA||[]).map(id=>pname(id)).join(' & ');
-        const bNames=(g.teamB||[]).map(id=>pname(id)).join(' & ');
-        oppLabel=b.linkedGame.side==='A'?`🔵 ${bNames}`:`🔴 ${aNames}`;
-      }else if((gameType==='n64'||gameType==='race')&&g){
-        const allPlayers=gameType==='n64'?(g.players||[]):(g.runners||[]);
-        const others=allPlayers.filter(pid=>pid!==b.linkedGame.side);
-        oppLabel=others.map(id=>pname(id)).join(' or ');
-      }
 
-      return `<div style="background:var(--surface);border:1px solid var(--border-dim);border-radius:8px;padding:8px 10px;margin-bottom:6px;font-size:12px">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:${isOpen&&!isMe?'8':'0'}px">
-          <div style="flex:1;min-width:0">
-            <span style="color:var(--text-dim)">${esc(pname(b.proposer))}</span>
-            <span style="color:var(--text)"> → ${esc(b.desc)}</span>
-            ${!isEven?`<span style="color:var(--text-muted)"> @ ${oddsN}:${oddsD}</span>`:''}
-            <span class="mono" style="color:var(--gold)"> $${b.amount}</span>
+  const g=R[`${gameType}Games`]?.[gameId];
+  if(!g) return '';
+
+  // Build player rows for the game itself
+  let playerRows='';
+  if(gameType==='nerf'){
+    const aNames=(g.teamA||[]).map(id=>pname(id)).join(' & ');
+    const bNames=(g.teamB||[]).map(id=>pname(id)).join(' & ');
+    const aWon=g.settled&&g.winner==='A';
+    const bWon=g.settled&&g.winner==='B';
+    const pot=g.pot||0;
+    playerRows=`
+      <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:4px;align-items:center;margin-bottom:6px">
+        <div style="text-align:center">
+          <div style="font-size:11px;font-weight:700;color:var(--red-light)">🔴 ${esc(aNames)}</div>
+          <div class="mono" style="font-size:11px;color:${aWon?'var(--green)':'var(--text-muted)'}">
+            ${aWon?`✓ +$${pot/2}`:`+$${pot/2} if win`}
           </div>
-          ${b.settled?`<span style="color:${b.winner==='proposer'?'var(--green)':'var(--red-light)'}">
-            ${b.winner==='proposer'?'✓ Won':'✗ Lost'}
-          </span>`:''}
         </div>
-        ${isOpen&&!isMe?`
-          <div style="background:rgba(76,175,130,0.07);border:1px solid rgba(76,175,130,0.2);border-radius:6px;padding:7px 9px;margin-bottom:6px">
-            <div style="color:var(--green);font-weight:600;margin-bottom:2px">You'd be betting on: ${esc(oppLabel)}</div>
-            <div style="color:var(--text-dim)">You put up <span style="color:var(--text)">$${takerWins}</span> · you win <span style="color:var(--green)">$${proposerWins}</span> if they win${!isEven?` (${oddsD}:${oddsN} your way)`:''}</div>
+        <div style="font-size:10px;color:var(--text-muted)">vs</div>
+        <div style="text-align:center">
+          <div style="font-size:11px;font-weight:700;color:var(--blue)">🔵 ${esc(bNames)}</div>
+          <div class="mono" style="font-size:11px;color:${bWon?'var(--green)':'var(--text-muted)'}">
+            ${bWon?`✓ +$${pot/2}`:`+$${pot/2} if win`}
           </div>
-          <button class="btn btn-xs btn-green" style="width:100%" onclick="takeSpecBet('${b.id}')">Take this bet</button>`
-        :isOpen&&isMe?`<div style="font-size:10px;color:var(--text-muted);margin-top:4px">Waiting for a taker…</div>`
-        :!b.settled?`<div style="font-size:10px;color:var(--text-muted);margin-top:4px">Matched — awaiting result</div>`:''}
+        </div>
       </div>`;
-    }).join('')}
+  }else if(gameType==='n64'){
+    const players=g.players||[];
+    const splits=g.placements?.length?calcN64SplitsFromData(g):{};
+    playerRows=`<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:6px">
+      ${players.map(pid=>{
+        const won=g.settled&&g.placements?.[0]===pid;
+        const delta=splits[pid];
+        return `<div style="text-align:center;min-width:60px">
+          <div style="font-size:11px;font-weight:700;color:${won?'var(--green)':'var(--text)'}">${esc(pname(pid))}</div>
+          <div class="mono" style="font-size:11px;color:${won?'var(--green)':'var(--text-muted)'}">
+            ${delta!=null?(delta>=0?`✓ +$${delta}`:`-$${Math.abs(delta)}`):'+$ if win'}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }else if(gameType==='race'){
+    const runners=g.runners||[];
+    const pot=(runners.length-1)*(g.amount*g.oddsN/g.oddsD);
+    playerRows=`<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:6px">
+      ${runners.map(pid=>{
+        const won=g.settled&&g.winner===pid;
+        return `<div style="text-align:center;min-width:60px">
+          <div style="font-size:11px;font-weight:700;color:${won?'var(--green)':'var(--text)'}">${esc(pname(pid))}</div>
+          <div class="mono" style="font-size:11px;color:${won?'var(--green)':'var(--text-muted)'}">
+            ${won?`✓ +$${pot.toFixed(0)}`:`+$${pot.toFixed(0)} if win`}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  // Build bettor rows
+  const bettorRows=linked.map(b=>{
+    const pn=pname(b.proposer);
+    const an=b.acceptor?pname(b.acceptor):null;
+    const oddsN=b.oddsN||1,oddsD=b.oddsD||1;
+    const isEven=oddsN===1&&oddsD===1;
+    const proposerWins=Math.round(b.amount*oddsN/oddsD*100)/100;
+    const takerWins=b.amount;
+    const proposerWon=b.settled&&b.winner==='proposer';
+    const takerWon=b.settled&&b.winner==='acceptor';
+    const isOpen=b.open&&!b.acceptor;
+    const isMe=b.proposer===SESSION.playerId;
+
+    // Side labels
+    let pSide='',tSide='';
+    if(gameType==='nerf'&&g){
+      const aNames=(g.teamA||[]).map(id=>pname(id)).join(' & ');
+      const bNames=(g.teamB||[]).map(id=>pname(id)).join(' & ');
+      pSide=b.linkedGame.side==='A'?`🔴 ${aNames}`:`🔵 ${bNames}`;
+      tSide=b.linkedGame.side==='A'?`🔵 ${bNames}`:`🔴 ${aNames}`;
+    }else if(gameType==='n64'||gameType==='race'){
+      pSide=pname(b.linkedGame.side);
+      const all=gameType==='n64'?(g.players||[]):(g.runners||[]);
+      tSide=all.filter(pid=>pid!==b.linkedGame.side).map(id=>pname(id)).join('/');
+    }
+
+    return `<div style="background:rgba(201,168,76,0.05);border:1px solid rgba(201,168,76,0.15);border-radius:8px;padding:8px 10px;margin-bottom:6px">
+      <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:4px;align-items:start">
+        <div style="text-align:center">
+          <div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:3px">${esc(pn)} bets</div>
+          <div style="font-size:12px;font-weight:700;color:${proposerWon?'var(--green)':b.settled?'var(--text-dim)':'var(--gold)'};margin-bottom:2px">${esc(pSide||pn)}</div>
+          <div class="mono" style="font-size:12px;color:${proposerWon?'var(--green)':'var(--text-muted)'}">
+            ${proposerWon?`✓ +$${proposerWins}`:`+$${proposerWins} to win`}
+          </div>
+        </div>
+        <div style="font-size:10px;color:var(--text-muted);padding-top:16px">vs</div>
+        <div style="text-align:center">
+          ${an?`
+            <div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:3px">${esc(an)} bets</div>
+            <div style="font-size:12px;font-weight:700;color:${takerWon?'var(--green)':b.settled?'var(--text-dim)':'var(--blue)'};margin-bottom:2px">${esc(tSide||an)}</div>
+            <div class="mono" style="font-size:12px;color:${takerWon?'var(--green)':'var(--text-muted)'}">
+              ${takerWon?`✓ +$${takerWins}`:`+$${takerWins} to win`}
+            </div>
+          `:isOpen&&!isMe?`
+            <div style="padding-top:12px">
+              <div style="font-size:10px;color:var(--text-muted);margin-bottom:4px">Bet on ${esc(tSide||'other side')}</div>
+              <div class="mono" style="font-size:11px;color:var(--green)">+$${takerWins} to win${!isEven?` (${oddsD}:${oddsN})`:''}  </div>
+              <button class="btn btn-xs btn-green" style="margin-top:6px;width:100%" onclick="takeSpecBet('${b.id}')">Take it</button>
+            </div>
+          `:`<div style="padding-top:16px;font-size:11px;color:var(--text-muted);font-style:italic">open…</div>`}
+        </div>
+      </div>
+      ${!isEven?`<div style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:4px">Odds ${oddsN}:${oddsD}</div>`:''}
+    </div>`;
+  }).join('');
+
+  return `<div style="margin-top:10px;border-top:1px solid rgba(201,168,76,0.2);padding-top:10px">
+    <div class="label" style="margin-bottom:8px;color:var(--gold)">Game + Side Bets</div>
+    ${playerRows}
+    ${bettorRows}
   </div>`;
 }
 function getPinataWeapons(){
