@@ -2585,10 +2585,44 @@ function renderBets(){
   empty.style.display='none';
   const pending=bets.filter(b=>!b.settled);const settled=bets.filter(b=>b.settled);
   list.innerHTML=[...pending,...settled].map(b=>{
-    const pn=pname(b.proposer),an=pname(b.acceptor);
+    const pn=pname(b.proposer),an=b.acceptor?pname(b.acceptor):'?';
     const siderTags=(b.siders||[]).map(s=>`<span class="tag tag-blue">${esc(pname(s))}</span>`).join('');
+    const oddsN=b.oddsN||1, oddsD=b.oddsD||1;
+    const isEven=oddsN===1&&oddsD===1;
+    const isOpen=b.open&&!b.acceptor;
+    const isMe=b.proposer===SESSION.playerId;
+    const iAmTaker=b.acceptor===SESSION.playerId;
+
+    // For open linked bets, compute what taker would get
+    let takerContext='';
+    if(isOpen&&!isMe&&b.linkedGame){
+      const gameType=b.linkedGame.type;
+      const gameId=b.linkedGame.id;
+      const g=R[`${gameType}Games`]?.[gameId];
+      let oppLabel='the other side';
+      if(gameType==='nerf'&&g){
+        const aNames=(g.teamA||[]).map(id=>pname(id)).join(' & ');
+        const bNames=(g.teamB||[]).map(id=>pname(id)).join(' & ');
+        oppLabel=b.linkedGame.side==='A'?`🔵 ${bNames}`:`🔴 ${aNames}`;
+      }else if((gameType==='n64'||gameType==='race')&&g){
+        const allPlayers=gameType==='n64'?(g.players||[]):(g.runners||[]);
+        oppLabel=allPlayers.filter(pid=>pid!==b.linkedGame.side).map(id=>pname(id)).join(' or ');
+      }
+      const proposerWins=Math.round(b.amount*oddsN/oddsD*100)/100;
+      takerContext=`<div style="background:rgba(76,175,130,0.07);border:1px solid rgba(76,175,130,0.2);border-radius:6px;padding:7px 9px;margin:6px 0;font-size:12px">
+        <div style="color:var(--green);font-weight:600;margin-bottom:2px">You'd be betting on: ${esc(oppLabel)}</div>
+        <div style="color:var(--text-dim)">You put up <span style="color:var(--text)">$${b.amount}</span> · you win <span style="color:var(--green)">$${proposerWins}</span> if they win${!isEven?` (${oddsD}:${oddsN} your way)`:''}</div>
+      </div>`;
+    }
+
+    // Footer
     let footer;
-    if(!b.settled&&canInteract()){
+    if(isOpen&&!isMe){
+      footer=`${takerContext}<div class="card-footer"><button class="btn btn-green btn-full" onclick="takeSpecBet('${b.id}')">Take this bet</button></div>`;
+    }else if(isOpen&&isMe){
+      footer=`<div class="card-footer"><span style="font-size:12px;color:var(--text-muted)">Waiting for a taker…</span></div>`;
+    }else if(!b.settled&&canInteract()){
+      const oddsStr=!isEven?` (${oddsN}:${oddsD})`:'';
       footer=`<div class="card-footer">
         <button class="btn btn-green btn-sm" style="flex:1" onclick="settleBet('${b.id}','proposer')">🟡 ${esc(pn)} wins</button>
         <button class="btn btn-green btn-sm" style="flex:1" onclick="settleBet('${b.id}','acceptor')">🟢 ${esc(an)} wins</button>
@@ -2596,15 +2630,19 @@ function renderBets(){
       </div>`;
     }else if(b.settled){
       const wn=b.winner==='proposer'?pn:an;
-      const pot=b.amount*(1+(b.siders||[]).length);
-      footer=`<div class="card-footer"><span style="font-size:12px;color:var(--text-dim)">✓ <strong style="color:var(--green)">${esc(wn)}</strong> won $${pot}</span></div>`;
+      const proposerWins=Math.round(b.amount*oddsN/oddsD*100)/100;
+      const takerWins=b.amount;
+      const winAmt=b.winner==='proposer'?proposerWins:takerWins;
+      footer=`<div class="card-footer"><span style="font-size:12px;color:var(--text-dim)">✓ <strong style="color:var(--green)">${esc(wn)}</strong> won $${winAmt}</span></div>`;
     }else{footer='';}
+
+    const oddsTag=!isEven?`<span class="tag tag-dim">${oddsN}:${oddsD}</span>`:'';
     return `<div class="card">
       <div class="card-header"><span style="font-weight:600;font-size:14px">${esc(b.desc)}</span><span class="mono val-gold">$${b.amount}</span></div>
       <div class="card-body" style="padding-top:10px;padding-bottom:6px">
         <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
           <span class="tag tag-gold">${esc(pn)}</span><span style="color:var(--text-muted);font-size:11px">vs</span>
-          <span class="tag tag-green">${esc(an)}</span>${siderTags}
+          <span class="tag tag-green">${isOpen?'open':esc(an)}</span>${siderTags}${oddsTag}
           ${b.settled?'<span class="tag tag-dim" style="margin-left:auto">settled</span>':''}
         </div>
       </div>${footer}
