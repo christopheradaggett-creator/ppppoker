@@ -2167,12 +2167,19 @@ window.saveChipCheck = function(){
       const diff=Math.round(enteredTotal)-Math.round(expectedTotal);
       const errEl=document.getElementById('chipCheckErr');
       if(errEl){
-        errEl.textContent=`⚠ Total $${Math.round(enteredTotal)} doesn't match pool $${expectedTotal} (${diff>0?'+':''}$${diff}). Check your counts or save anyway.`;
+        errEl.innerHTML=`<strong>⛔ Numbers don't add up!</strong><br>You entered <strong>$${Math.round(enteredTotal)}</strong> but the pool is <strong>$${Math.round(expectedTotal)}</strong> (${diff>0?'over by':'short by'} $${Math.abs(diff)}). Fix the chip counts or use Override to force it.`;
         errEl.style.display='block';
+        errEl.style.borderColor='var(--red-light)';
+        errEl.style.background='rgba(192,57,43,0.15)';
+        // Shake animation
+        errEl.style.transform='translateX(-4px)';
+        setTimeout(()=>{errEl.style.transform='translateX(4px)';},80);
+        setTimeout(()=>{errEl.style.transform='translateX(-3px)';},160);
+        setTimeout(()=>{errEl.style.transform='translateX(0)';},240);
       }
       document.getElementById('chipCheckActions').innerHTML=`
         <button class="btn btn-outline" style="flex:1" onclick="closeModal('chipCheckOverlay');resetChipCheckModal()">Cancel</button>
-        <button class="btn btn-danger" style="flex:1" onclick="forceChipCheck()">Save Anyway</button>
+        <button class="btn btn-danger" style="flex:1" onclick="forceChipCheck()">Force Save</button>
         <button class="btn btn-gold" style="flex:1" onclick="saveChipCheck()">Re-check</button>`;
       return;
     }
@@ -2608,9 +2615,12 @@ function renderBets(){
     const isOpen=b.open&&!b.acceptor;
     const isMe=b.proposer===SESSION.playerId;
 
-    // Payout amounts
+    // Payout amounts — proposer puts up b.amount, wins b.amount*oddsN/oddsD
+    // Taker puts up proposerWins, wins b.amount back
+    const proposerStake=b.amount;
     const proposerWins=Math.round(b.amount*oddsN/oddsD*100)/100;
-    const takerWins=b.amount;
+    const takerStake=proposerWins;
+    const takerWins=proposerStake;
 
     // Game context line for linked bets
     let gameContext='';
@@ -2647,18 +2657,20 @@ function renderBets(){
         <div style="text-align:center">
           <div style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px">${esc(pn)} bets on</div>
           <div style="font-size:13px;font-weight:700;color:${proposerWon?'var(--green)':b.settled?'var(--text-dim)':'var(--gold)'};margin-bottom:4px">${fullProposerSide||esc(pn)}</div>
-          <div style="font-family:'DM Mono',monospace;font-size:13px;color:${proposerWon?'var(--green)':'var(--text-muted)'}">
+          <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text-muted)">put up $${proposerStake}</div>
+          <div style="font-family:'DM Mono',monospace;font-size:12px;color:${proposerWon?'var(--green)':'var(--text-muted)'}">
             ${proposerWon?`✓ +$${proposerWins}`:`+$${proposerWins} to win`}
           </div>
         </div>
         <!-- VS -->
-        <div style="text-align:center;padding-top:18px;font-size:10px;color:var(--text-muted);font-weight:600">vs</div>
+        <div style="text-align:center;padding-top:22px;font-size:10px;color:var(--text-muted);font-weight:600">vs</div>
         <!-- Taker -->
         <div style="text-align:center">
           ${an?`
             <div style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px">${esc(an)} bets on</div>
             <div style="font-size:13px;font-weight:700;color:${takerWon?'var(--green)':b.settled?'var(--text-dim)':'var(--blue)'};margin-bottom:4px">${fullTakerSide||esc(an)}</div>
-            <div style="font-family:'DM Mono',monospace;font-size:13px;color:${takerWon?'var(--green)':'var(--text-muted)'}">
+            <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text-muted)">put up $${takerStake}</div>
+            <div style="font-family:'DM Mono',monospace;font-size:12px;color:${takerWon?'var(--green)':'var(--text-muted)'}">
               ${takerWon?`✓ +$${takerWins}`:`+$${takerWins} to win`}
             </div>
           `:`<div style="padding-top:18px;font-size:12px;color:var(--text-muted);font-style:italic">open</div>`}
@@ -2672,7 +2684,7 @@ function renderBets(){
     if(isOpen&&!isMe){
       let takerContext='';
       if(b.linkedGame&&fullTakerSide){
-        takerContext=`<div style="font-size:11px;color:var(--text-dim);margin-bottom:6px;text-align:center">You'd be betting on <strong style="color:var(--blue)">${esc(fullTakerSide)}</strong> · win <span style="color:var(--green)">+$${takerWins}</span>${!isEven?` (${oddsD}:${oddsN} your way)`:''}</div>`;
+        takerContext=`<div style="font-size:11px;color:var(--text-dim);margin-bottom:6px;text-align:center">You'd be betting on <strong style="color:var(--blue)">${esc(fullTakerSide)}</strong> · put up <span style="color:var(--text)">$${takerStake}</span> to win <span style="color:var(--green)">+$${takerWins}</span>${!isEven?` (${oddsD}:${oddsN} your way)`:''}</div>`;
       }
       footer=`<div class="card-footer" style="flex-direction:column;align-items:stretch">${takerContext}<button class="btn btn-green btn-full" onclick="takeSpecBet('${b.id}')">Take this bet</button></div>`;
     }else if(isOpen&&isMe){
@@ -2687,7 +2699,8 @@ function renderBets(){
       footer=`<div class="card-footer"><button class="btn btn-outline btn-sm" onclick="deleteBet('${b.id}')">🗑</button></div>`;
     }else if(b.settled){
       const wn=b.winner==='proposer'?pn:an;
-      footer=`<div class="card-footer"><span style="font-size:12px;color:var(--text-dim)">✓ <strong style="color:var(--green)">${esc(wn)}</strong> won $${b.winner==='proposer'?proposerWins:takerWins}</span></div>`;
+      const wonAmt=b.winner==='proposer'?proposerWins:takerWins;
+      footer=`<div class="card-footer"><span style="font-size:12px;color:var(--text-dim)">✓ <strong style="color:var(--green)">${esc(wn)}</strong> won +$${wonAmt}</span></div>`;
     }
 
     return `<div class="card">
@@ -4160,8 +4173,12 @@ function renderLinkedBets(gameType, gameId){
     const an=b.acceptor?pname(b.acceptor):null;
     const oddsN=b.oddsN||1,oddsD=b.oddsD||1;
     const isEven=oddsN===1&&oddsD===1;
+    // Proposer puts up b.amount, wins b.amount * oddsN/oddsD
+    const proposerStake=b.amount;
     const proposerWins=Math.round(b.amount*oddsN/oddsD*100)/100;
-    const takerWins=b.amount;
+    // Taker puts up proposerWins (to match the proposer's potential winnings), wins b.amount back
+    const takerStake=proposerWins;
+    const takerWins=proposerStake;
     const proposerWon=b.settled&&b.winner==='proposer';
     const takerWon=b.settled&&b.winner==='acceptor';
     const isOpen=b.open&&!b.acceptor;
@@ -4195,15 +4212,15 @@ function renderLinkedBets(gameType, gameId){
           ${an?`
             <div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:3px">${esc(an)} bets</div>
             <div style="font-size:12px;font-weight:700;color:${takerWon?'var(--green)':b.settled?'var(--text-dim)':'var(--blue)'};margin-bottom:2px">${esc(tSide||an)}</div>
-            <div class="mono" style="font-size:11px;color:var(--text-muted)">put up $${takerWins}</div>
+            <div class="mono" style="font-size:11px;color:var(--text-muted)">put up $${takerStake}</div>
             <div class="mono" style="font-size:12px;color:${takerWon?'var(--green)':'var(--text-muted)'}">
-              ${takerWon?`✓ +$${proposerWins}`:`+$${proposerWins} to win`}
+              ${takerWon?`✓ +$${takerWins}`:`+$${takerWins} to win`}
             </div>
           `:isOpen&&!isMe?`
             <div style="padding-top:12px">
               <div style="font-size:10px;color:var(--text-muted);margin-bottom:4px">Bet on ${esc(tSide||'other side')}</div>
-              <div class="mono" style="font-size:11px;color:var(--text)">Put up $${takerWins}</div>
-              <div class="mono" style="font-size:11px;color:var(--green)">Win +$${proposerWins}${!isEven?` (${oddsD}:${oddsN})`:''}  </div>
+              <div class="mono" style="font-size:11px;color:var(--text)">Put up $${takerStake}</div>
+              <div class="mono" style="font-size:11px;color:var(--green)">Win +$${takerWins}${!isEven?` (${oddsD}:${oddsN})`:''}  </div>
               <button class="btn btn-xs btn-green" style="margin-top:6px;width:100%" onclick="takeSpecBet('${b.id}')">Take it</button>
             </div>
           `:`<div style="padding-top:16px;font-size:11px;color:var(--text-muted);font-style:italic">open…</div>`}
