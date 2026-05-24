@@ -2265,22 +2265,20 @@ window.launchCeremony = async function(){
     const expectedTotal=Object.values(R.players||{}).reduce((s,p)=>s+(p.buyIns||0)*getBuyIn(p.table||1),0);
     if(Math.round(enteredTotal)!==Math.round(expectedTotal)){
       const diff=Math.round(enteredTotal)-Math.round(expectedTotal);
+      const msg=`Numbers don't add up!\n\nYou entered: $${Math.round(enteredTotal)}\nPool total: $${Math.round(expectedTotal)}\n${diff>0?'Over':'Short'} by: $${Math.abs(diff)}\n\nClick OK to go back and fix, or use "Force End Game" to override.`;
+      // Show in modal if open
       const errEl=document.getElementById('chipCheckErr');
       if(errEl){
-        errEl.innerHTML=`<strong>⛔ Numbers don't add up!</strong><br>You entered <strong>$${Math.round(enteredTotal)}</strong> but the pool is <strong>$${Math.round(expectedTotal)}</strong> (${diff>0?'over by':'short by'} $${Math.abs(diff)}). Fix the numbers or override.`;
-        errEl.style.display='block';
-        errEl.style.borderColor='var(--red-light)';
-        errEl.style.background='rgba(192,57,43,0.15)';
-        errEl.style.transform='translateX(-4px)';
-        setTimeout(()=>{errEl.style.transform='translateX(4px)';},80);
-        setTimeout(()=>{errEl.style.transform='translateX(-3px)';},160);
-        setTimeout(()=>{errEl.style.transform='translateX(0)';},240);
+        errEl.innerHTML=`<strong>⛔ Numbers don't add up!</strong><br>Entered <strong>$${Math.round(enteredTotal)}</strong> · Pool is <strong>$${Math.round(expectedTotal)}</strong> · ${diff>0?'Over':'Short'} by $${Math.abs(diff)}`;
+        errEl.style.cssText='display:block;background:rgba(192,57,43,0.2);border:2px solid var(--red-light);border-radius:8px;padding:12px;font-size:13px;color:var(--red-light);margin-bottom:10px;line-height:1.5';
       }
-      // Replace End Game button with override option
       document.getElementById('chipCheckActions').innerHTML=`
         <button class="btn btn-outline" style="flex:1" onclick="closeModal('chipCheckOverlay');resetChipCheckModal()">Cancel</button>
-        <button class="btn btn-danger" style="flex:1" onclick="forceLaunchCeremony()">Force End Game</button>
+        <button class="btn btn-danger" style="flex:1" onclick="forceLaunchCeremony()">Force End</button>
         <button class="btn btn-gold" style="flex:1" onclick="launchCeremony()">Re-check</button>`;
+      // Scroll error into view
+      if(errEl) errEl.scrollIntoView({behavior:'smooth',block:'center'});
+      showToast(`⛔ ${diff>0?'Over':'Short'} by $${Math.abs(diff)} — fix chip counts!`);
       return;
     }
   }
