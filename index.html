@@ -420,7 +420,7 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
   <nav class="nav" id="mainNav">
     <button class="nav-tab active" onclick="switchTab('board')" id="t-board">Leaderboard</button>
     <button class="nav-tab" onclick="switchTab('players')" id="t-players">Players</button>
-    <button class="nav-tab" onclick="switchTab('games')" id="t-games">Games</button>
+    <button class="nav-tab" onclick="switchTab('games')" id="t-games">Side Bets</button>
     <button class="nav-tab" onclick="switchTab('drinks')" id="t-drinks">🍹 Drinks</button>
     <button class="nav-tab" onclick="switchTab('settle')" id="t-settle">Settle Up</button>
     <button class="nav-tab" onclick="switchTab('history')" id="t-history">History</button>
@@ -538,7 +538,7 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
     <!-- SIDE BETS -->
     <!-- GAMES (includes side bets) -->
     <div class="section" id="sec-games">
-      <div class="sec-header" style="margin-top:4px"><div class="sec-title">Games</div></div>
+      <div class="sec-header" style="margin-top:4px"><div class="sec-title">Side Bets & Games</div></div>
 
       <!-- Side Bets -->
       <div class="game-card" style="background:rgba(201,168,76,0.06);border-color:rgba(201,168,76,0.2)">
@@ -767,10 +767,11 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
     <div id="hdHostTally" style="display:none;margin-top:28px;background:rgba(0,0,0,0.6);border:1px solid rgba(255,140,0,0.4);border-radius:16px;padding:18px 24px;pointer-events:all;min-width:260px">
       <div style="font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;color:#ffcc00;margin-bottom:10px;text-align:center">🌭 Dog Orders</div>
       <div id="hdTallyRows" style="margin-bottom:10px"></div>
-      <div style="border-top:1px solid rgba(255,140,0,0.3);padding-top:10px;display:flex;justify-content:space-between;align-items:center">
+      <div style="border-top:1px solid rgba(255,140,0,0.3);padding-top:10px;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
         <span style="font-family:'DM Sans',sans-serif;font-size:13px;color:rgba(255,255,255,0.7)">Total</span>
         <span id="hdTallyTotal" style="font-family:'Playfair Display',serif;font-size:22px;font-weight:900;color:#ffcc00">0 🌭</span>
       </div>
+      <button onclick="closeHotDogOClock()" style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,140,0,0.5);background:rgba(255,107,0,0.3);color:#ffcc00;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer">✓ Dogs Served — Close It Out</button>
     </div>
 
     <div class="label" style="margin-top:16px;animation:hdFade 1s ease-in-out infinite alternate">tap outside to resume</div>
@@ -1036,6 +1037,41 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
     <div class="modal-actions">
       <button class="btn btn-outline" style="flex:1" onclick="closeModal('raceOverlay')">Cancel</button>
       <button class="btn btn-gold" style="flex:2" onclick="startRace()">They're Off</button>
+    </div>
+  </div>
+</div>
+
+<!-- Spectator Bet Modal -->
+<div class="overlay" id="specBetOverlay" style="display:none" onclick="if(event.target===this)closeModal('specBetOverlay')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">🎲 Bet on this Game</div>
+    <div style="background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.2);border-radius:10px;padding:12px;margin-bottom:16px;font-size:13px" id="specBetContext"></div>
+    <div class="form-row">
+      <label class="field-label">You're betting on</label>
+      <select class="field" id="specBetSide" style="appearance:auto"></select>
+    </div>
+    <div class="form-row">
+      <label class="field-label">Stake ($)</label>
+      <input class="field" id="specBetAmount" type="number" min="1" placeholder="e.g. 10">
+      <div class="presets">
+        <button class="preset" onclick="setAmt('specBetAmount',5)">$5</button>
+        <button class="preset" onclick="setAmt('specBetAmount',10)">$10</button>
+        <button class="preset" onclick="setAmt('specBetAmount',25)">$25</button>
+      </div>
+    </div>
+    <div class="form-row">
+      <label class="field-label">Odds (optional — e.g. 2:1 means you win twice your stake)</label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input class="field" id="specBetOddsN" type="number" min="1" value="1" style="flex:1;text-align:center">
+        <span style="color:var(--text-dim);font-size:16px">:</span>
+        <input class="field" id="specBetOddsD" type="number" min="1" value="1" style="flex:1;text-align:center">
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--text-dim);margin-bottom:16px" id="specBetPreview"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" style="flex:1" onclick="closeModal('specBetOverlay')">Cancel</button>
+      <button class="btn btn-gold" style="flex:2" onclick="proposeSpecBet()">Propose Bet</button>
     </div>
   </div>
 </div>
@@ -2108,10 +2144,9 @@ window.saveChipCheck = function(){
 
   // Validate whenever all players are accounted for (none truly blank without a prior value)
   if(blankCount===0 && enteredCount===ap.length){
-    const totalBuyIns=Object.values(R.players||{}).reduce((s,p)=>s+(p.buyIns||0),0);
-    const expectedTotal=totalBuyIns*buyIn;
-    if(Math.round(enteredTotal)!==expectedTotal){
-      const diff=Math.round(enteredTotal)-expectedTotal;
+    const expectedTotal=Object.values(R.players||{}).reduce((s,p)=>s+(p.buyIns||0)*getBuyIn(p.table||1),0);
+    if(Math.round(enteredTotal)!==Math.round(expectedTotal)){
+      const diff=Math.round(enteredTotal)-Math.round(expectedTotal);
       const errEl=document.getElementById('chipCheckErr');
       if(errEl){
         errEl.textContent=`⚠ Total $${Math.round(enteredTotal)} doesn't match pool $${expectedTotal} (${diff>0?'+':''}$${diff}). Check your counts or save anyway.`;
@@ -2303,36 +2338,43 @@ function buildCeremony(){
 
   // Highlights
   const highlights=[];
-  const bets=Object.values(R.bets||{}).filter(b=>b.settled);
+  const bets=Object.values(R.bets||{}).filter(b=>b.settled&&!b.linkedGame);
   if(bets.length){
-    // Biggest side bet
     const biggest=bets.reduce((a,b)=>b.amount>a.amount?b:a,bets[0]);
-    highlights.push(`Biggest side bet: <strong>$${biggest.amount}</strong> — ${esc(pname(biggest.winner==='proposer'?biggest.proposer:biggest.acceptor))} took it`);
-    // Most bets won
+    const winner=pname(biggest.winner==='proposer'?biggest.proposer:biggest.acceptor);
+    highlights.push(`Biggest side bet: <strong>$${biggest.amount}</strong> — "${esc(biggest.desc)}" — ${esc(winner)} won`);
     const wins={};ap.forEach(p=>wins[p.id]=0);
     bets.forEach(b=>{
       const w=b.winner==='proposer'?b.proposer:b.acceptor;
       if(wins[w]!==undefined)wins[w]++;
     });
     const topWinner=Object.entries(wins).sort(([,a],[,b])=>b-a)[0];
-    if(topWinner&&topWinner[1]>0)highlights.push(`Most bets won: <strong>${esc(pname(topWinner[0]))}</strong> (${topWinner[1]})`);
+    if(topWinner&&topWinner[1]>1)highlights.push(`Most bets won: <strong>${esc(pname(topWinner[0]))}</strong> (${topWinner[1]})`);
   }
   // Nit game loser
-  const nitLosers=Object.values(R.nitGames||{}).filter(g=>g.settled&&g.loser);
-  nitLosers.forEach(g=>highlights.push(`Nit game: <strong>${esc(pname(g.loser))}</strong> paid $${g.amount*((g.players||[]).length-1)}`));
+  Object.values(R.nitGames||{}).filter(g=>g.settled&&g.loser).forEach(g=>
+    highlights.push(`Nit game: <strong>${esc(pname(g.loser))}</strong> paid $${g.amount*((g.players||[]).length-1)}`)
+  );
   // 2/7 hits
   Object.values(R.lowGames||{}).forEach(g=>{
-    const hits=Object.values(g.hits||{});
-    if(hits.length) hits.forEach(h=>highlights.push(`2/7 hit: <strong>${esc(pname(h.winner))}</strong> collected $${g.amount*((g.players||[]).length-1)}`));
+    Object.values(g.hits||{}).forEach(h=>
+      highlights.push(`2/7: <strong>${esc(pname(h.winner))}</strong> collected $${g.amount*((g.players||[]).length-1)}`)
+    );
   });
   // N64
-  Object.values(R.n64Games||{}).filter(g=>g.settled).forEach(g=>{
-    const winner=g.placements?.[0];
-    if(winner)highlights.push(`${esc(g.game)}: <strong>${esc(pname(winner))}</strong> won`);
+  Object.values(R.n64Games||{}).filter(g=>g.settled&&g.placements?.length).forEach(g=>{
+    const pot=g.amount*((g.players||[]).length-1);
+    highlights.push(`${esc(g.game)}: <strong>${esc(pname(g.placements[0]))}</strong> wins $${pot}`);
   });
   // Races
   Object.values(R.raceGames||{}).filter(g=>g.settled&&g.winner).forEach(g=>{
-    highlights.push(`40-yard dash: <strong>${esc(pname(g.winner))}</strong> wins at ${g.oddsN}:${g.oddsD}`);
+    const pot=((g.runners||[]).length-1)*(g.amount*g.oddsN/g.oddsD);
+    highlights.push(`40-yard dash: <strong>${esc(pname(g.winner))}</strong> wins $${pot.toFixed(0)} at ${g.oddsN}:${g.oddsD}`);
+  });
+  // Nerf
+  Object.values(R.nerfGames||{}).filter(g=>g.settled&&g.winner).forEach(g=>{
+    const winNames=(g.winner==='A'?g.teamA:g.teamB).map(id=>pname(id)).join(' & ');
+    highlights.push(`Nerf Darts: <strong>${esc(winNames)}</strong> wins $${g.pot}`);
   });
 
   const medals=['🥇','🥈','🥉'];
@@ -2775,7 +2817,10 @@ window.setN64Placement=function(gameId,pid,place){
   placements.splice(place-1,0,pid);
   const settled=placements.length===(g.players||[]).length;
   dbUpdate(`n64Games/${gameId}`,{placements,settled});
-  if(settled)showToast('Match settled 🎮');
+  if(settled){
+    showToast('Match settled 🎮');
+    autoSettleLinkedBets('n64',gameId,placements[0]); // winner is first place
+  }
 }
 window.deleteN64Game=function(id){dbSet(`n64Games/${id}`,null);}
 function renderN64Games(){
@@ -2816,6 +2861,8 @@ function renderN64Games(){
         </div>
         ${canInteract()?`<button class="btn btn-xs btn-outline" onclick="deleteN64Game('${g.id}')">✕</button>`:''}
       </div>${body}
+      ${!g.settled&&canInteract()?`<div style="padding:0 4px 8px"><button class="btn btn-xs" style="background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.3);color:var(--gold);width:100%" onclick="openSpecBet('n64','${g.id}')">🎲 Bet on this match</button></div>`:''}
+      ${renderLinkedBets('n64',g.id)}
     </div>`;
   }).join('');
 }
@@ -2844,6 +2891,7 @@ window.startRace=function(){
 window.settleRace=function(id,winnerId){
   const g=R.raceGames?.[id];if(!g)return;
   dbUpdate(`raceGames/${id}`,{settled:true,winner:winnerId});
+  autoSettleLinkedBets('race',id,winnerId);
   const losers=(g.runners||[]).filter(r=>r!==winnerId);
   showToast(`${pname(winnerId)} wins $${(losers.length*g.amount*g.oddsN/g.oddsD).toFixed(2)}! 🏆`);
 }
@@ -2870,11 +2918,11 @@ function renderRaceGames(){
         </div>`
         :'<div style="font-size:12px;color:var(--text-dim)">Awaiting result</div>'
       }
+      ${!g.settled&&canInteract()?`<button class="btn btn-xs" style="margin-top:8px;background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.3);color:var(--gold);width:100%" onclick="openSpecBet('race','${g.id}')">🎲 Bet on this race</button>`:''}
+      ${renderLinkedBets('race',g.id)}
     </div>`;
   }).join('');
 }
-
-// ── SETTLE ────────────────────────────────────────────
 function renderSettle(){
   const ap=activePlayers();
   const bets=Object.values(R.bets||{});
@@ -3548,6 +3596,8 @@ function renderStats(){
         <thead>
           <tr>
             <th style="text-align:left;position:sticky;left:0;z-index:2;background:var(--felt-dark)">Player</th>
+            <th>Games<br>Played</th>
+            <th>Total<br>Buy-ins</th>
             <th>Lifetime<br>Winnings</th>
             <th>Avg/Game</th>
             <th>Games<br>W/L</th>
@@ -3562,7 +3612,7 @@ function renderStats(){
           </tr>
           <tr style="font-size:8px">
             <th style="position:sticky;left:0;z-index:2;background:var(--felt-dark)"></th>
-            <th></th><th></th><th></th><th></th><th></th><th></th>
+            <th></th><th></th><th></th><th></th><th></th><th></th><th></th>
             <th style="border-left:1px solid var(--border-dim)">W/L</th><th>Net</th>
             <th style="border-left:1px solid var(--border-dim)">W/L</th><th>Net</th>
             <th style="border-left:1px solid var(--border-dim)">Hits</th><th>Net</th>
@@ -3593,6 +3643,8 @@ function renderStats(){
                   <span class="stats-username">@${esc(profile.username)}${profile.favCocktail?` · 🍹`:''}</span>
                 </div>
               </td>
+              <td>${fmtN(s.gamesPlayed)}</td>
+              <td>${fmtN(s.totalBuyIns)}</td>
               <td>${fmt(net)}</td>
               <td>${fmt(avgPerGame)}</td>
               <td>${wl(gamesWon,gamesLost)}</td>
@@ -3621,6 +3673,95 @@ function renderStats(){
 window.toggleProfileBody=function(id){
   const el=document.getElementById(id);
   if(el) el.classList.toggle('open');
+}
+
+// ── SPECTATOR BETS ────────────────────────────────────
+let _specBetGame=null; // {type, id, sides: [{label, key}]}
+
+window.openSpecBet=function(gameType, gameId){
+  const g=R[`${gameType}Games`]?.[gameId];if(!g)return;
+  _specBetGame={type:gameType,id:gameId};
+
+  let context='', sides=[];
+  if(gameType==='nerf'){
+    const aNames=(g.teamA||[]).map(id=>pname(id)).join(' & ');
+    const bNames=(g.teamB||[]).map(id=>pname(id)).join(' & ');
+    context=`🔴 ${aNames} vs 🔵 ${bNames} · $${g.pot} pot`;
+    sides=[{label:`🔴 ${aNames}`,key:'A'},{label:`🔵 ${bNames}`,key:'B'}];
+  }else if(gameType==='n64'){
+    const playerNames=(g.players||[]).map(id=>pname(id)).join(', ');
+    context=`🎮 ${g.game} · ${playerNames}`;
+    sides=(g.players||[]).map(id=>({label:pname(id),key:id}));
+  }else if(gameType==='race'){
+    const runnerNames=(g.runners||[]).map(id=>pname(id)).join(', ');
+    context=`🏃 Race · ${runnerNames} · ${g.oddsN}:${g.oddsD} odds`;
+    sides=(g.runners||[]).map(id=>({label:pname(id),key:id}));
+  }
+
+  document.getElementById('specBetContext').textContent=context;
+  document.getElementById('specBetSide').innerHTML=sides.map(s=>`<option value="${esc(s.key)}">${esc(s.label)}</option>`).join('');
+  document.getElementById('specBetAmount').value='';
+  document.getElementById('specBetOddsN').value='1';
+  document.getElementById('specBetOddsD').value='1';
+  document.getElementById('specBetPreview').textContent='';
+  _specBetGame.sides=sides;
+  document.getElementById('specBetOverlay').style.display='flex';
+  // Live preview
+  ['specBetAmount','specBetOddsN','specBetOddsD'].forEach(id=>{
+    document.getElementById(id).oninput=updateSpecBetPreview;
+  });
+}
+
+function updateSpecBetPreview(){
+  const amt=parseFloat(document.getElementById('specBetAmount').value)||0;
+  const n=parseInt(document.getElementById('specBetOddsN').value)||1;
+  const d=parseInt(document.getElementById('specBetOddsD').value)||1;
+  const side=document.getElementById('specBetSide').value;
+  const sideLabel=_specBetGame?.sides?.find(s=>s.key===side)?.label||side;
+  if(!amt){document.getElementById('specBetPreview').textContent='';return;}
+  const winAmt=Math.round(amt*n/d*100)/100;
+  document.getElementById('specBetPreview').textContent=
+    `If ${sideLabel} wins: you collect $${winAmt} · If they lose: you pay $${amt}`;
+}
+
+window.proposeSpecBet=function(){
+  if(!_specBetGame||!SESSION.playerId){return;}
+  const amt=parseFloat(document.getElementById('specBetAmount').value);
+  if(!amt||amt<=0){showToast('Enter a stake');return;}
+  const side=document.getElementById('specBetSide').value;
+  const oddsN=parseInt(document.getElementById('specBetOddsN').value)||1;
+  const oddsD=parseInt(document.getElementById('specBetOddsD').value)||1;
+  const sideLabel=_specBetGame.sides.find(s=>s.key===side)?.label||side;
+  const desc=`On ${_specBetGame.type==='nerf'?'Nerf':_specBetGame.type==='n64'?'N64':'Race'}: ${sideLabel} wins`;
+  const bid=uid();
+  // Store as a special linked bet
+  dbSet(`bets/${bid}`,{
+    id:bid, desc, amount:amt, oddsN, oddsD,
+    proposer:SESSION.playerId, acceptor:null, siders:[],
+    linkedGame:{type:_specBetGame.type, id:_specBetGame.id, side},
+    tableScope:'all', settled:false, winner:null, open:true, ts:Date.now()
+  });
+  closeModal('specBetOverlay');
+  showToast('Bet proposed — waiting for a taker 🎲');
+}
+
+window.takeSpecBet=function(betId){
+  const b=R.bets?.[betId];if(!b||!b.open)return;
+  if(b.proposer===SESSION.playerId){showToast("You can't take your own bet");return;}
+  dbUpdate(`bets/${betId}`,{acceptor:SESSION.playerId,open:false});
+  showToast('Bet accepted! 🎲');
+}
+
+// Auto-settle linked bets when a game resolves
+function autoSettleLinkedBets(gameType, gameId, winningSide){
+  const linked=Object.values(R.bets||{}).filter(b=>
+    b.linkedGame&&b.linkedGame.type===gameType&&b.linkedGame.id===gameId&&!b.settled&&b.acceptor
+  );
+  linked.forEach(b=>{
+    const proposerWon=b.linkedGame.side===winningSide;
+    dbUpdate(`bets/${b.id}`,{settled:true,winner:proposerWon?'proposer':'acceptor'});
+  });
+  if(linked.length) showToast(`${linked.length} linked bet${linked.length>1?'s':''} auto-settled ✓`);
 }
 
 // ── NERF DARTS ────────────────────────────────────────
@@ -3702,8 +3843,9 @@ window.startNerfMatch=function(){
 window.settleNerfMatch=function(gameId,winTeam){
   const g=R.nerfGames?.[gameId];if(!g)return;
   dbUpdate(`nerfGames/${gameId}`,{settled:true,winner:winTeam});
-  const winners=winTeam==='A'?g.teamA:g.teamB;
-  showToast(`Team ${winTeam} wins $${g.pot}! 🔫`);
+  autoSettleLinkedBets('nerf',gameId,winTeam);
+  const winners=(winTeam==='A'?g.teamA:g.teamB).map(id=>pname(id)).join(' & ');
+  showToast(`${winners} win $${g.pot}! 🔫`);
 }
 window.deleteNerfGame=function(id){dbSet(`nerfGames/${id}`,null);}
 
@@ -3739,12 +3881,40 @@ function renderNerfGames(){
           </div>
         </div>`
       }
+      ${!g.settled&&canInteract()?`<button class="btn btn-xs" style="margin-top:8px;background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.3);color:var(--gold);width:100%" onclick="openSpecBet('nerf','${g.id}')">🎲 Bet on this match</button>`:''}
+      ${renderLinkedBets('nerf',g.id)}
     </div>`;
   }).join('');
 }
-
-// ── CASH PIÑATA ───────────────────────────────────────
 // Weapon names editable via R.pinataWeapons (Override → Settings)
+
+function renderLinkedBets(gameType, gameId){
+  const linked=Object.values(R.bets||{}).filter(b=>
+    b.linkedGame&&b.linkedGame.type===gameType&&b.linkedGame.id===gameId
+  );
+  if(!linked.length) return '';
+  return `<div style="margin-top:8px;border-top:1px solid var(--border-dim);padding-top:8px">
+    <div class="label" style="margin-bottom:6px">Side Bets on this game</div>
+    ${linked.map(b=>{
+      const isOpen=b.open&&!b.acceptor;
+      const isMe=b.proposer===SESSION.playerId;
+      const oddsStr=(b.oddsN&&b.oddsD&&(b.oddsN!==1||b.oddsD!==1))?` @ ${b.oddsN}:${b.oddsD}`:'';
+      return `<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;margin-bottom:5px;padding:6px 8px;background:var(--surface);border-radius:7px;border:1px solid var(--border-dim)">
+        <div style="flex:1;min-width:0;margin-right:8px">
+          <span style="color:var(--text-dim)">${esc(pname(b.proposer))}</span>
+          <span style="color:var(--text)"> → ${esc(b.desc)}${oddsStr}</span>
+          <span class="mono" style="color:var(--gold)"> $${b.amount}</span>
+        </div>
+        ${b.settled?`<span style="color:${b.winner==='proposer'?'var(--green)':'var(--red-light)'}">
+          ${b.winner==='proposer'?'✓ Won':'✗ Lost'}
+        </span>`
+        :isOpen&&!isMe?`<button class="btn btn-xs btn-green" onclick="takeSpecBet('${b.id}')">Take it</button>`
+        :isOpen&&isMe?`<span style="font-size:10px;color:var(--text-muted)">Open</span>`
+        :`<span style="font-size:10px;color:var(--text-muted)">Matched</span>`}
+      </div>`;
+    }).join('')}
+  </div>`;
+}
 function getPinataWeapons(){
   return {
     stick:  { name: R.pinataWeapons?.stick||'Stick',   emoji:'🪄' },
@@ -4113,7 +4283,11 @@ window.closeHotDogOClock=function(){
   document.getElementById('hdOrderConfirm').style.display='none';
   if(hdInterval){clearInterval(hdInterval);hdInterval=null;}
   if(hdAudioCtx){try{hdAudioCtx.close();}catch(e){}hdAudioCtx=null;}
-  // Keep banner up so anyone can reopen
+  // Broadcast close to all clients and dismiss banner
+  dbSet('hotdogActive',null);
+  dbSet('hotdogOClock',null);
+  hideHdBanner();
+  showToast('🌭 Hot Dog O\'Clock closed');
 }
 window.reopenHotDogOverlay=function(){
   document.getElementById('hotdogOverlay').style.display='block';
