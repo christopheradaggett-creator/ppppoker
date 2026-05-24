@@ -1222,16 +1222,16 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
       </div>
     </div>
     <div id="ov-pinata" class="ov-section" style="display:none">
-      <div style="font-size:12px;color:var(--text-dim);margin-bottom:16px;line-height:1.5">Rename the two premium weapons available for auction. Changes apply to the next piñata setup.</div>
+      <div style="font-size:12px;color:var(--text-dim);margin-bottom:16px;line-height:1.5">Weapon 1 is a mid-tier upgrade. Weapon 2 winner gets to choose their position in the swing order — first, last, etc.</div>
       <div class="ov-row">
-        <div class="ov-row-title">🏏 Weapon 1 (Mid-tier)</div>
+        <div class="ov-row-title">🏏 Weapon 1 (Mid-tier upgrade)</div>
         <div class="ov-field-row"><label>Name</label><input id="ovW1Name" maxlength="20" placeholder="Bat"></div>
-        <div class="ov-actions"><button class="btn btn-gold btn-sm" onclick="savePinataWeapons()">Save Weapons</button></div>
       </div>
       <div class="ov-row">
-        <div class="ov-row-title">🔧 Weapon 2 (Premium)</div>
-        <div class="ov-field-row"><label>Name</label><input id="ovW2Name" maxlength="20" placeholder="Crowbar"></div>
+        <div class="ov-row-title">🎯 Weapon 2 (Position choice)</div>
+        <div class="ov-field-row"><label>Name</label><input id="ovW2Name" maxlength="20" placeholder="Position Choice"></div>
       </div>
+      <button class="btn btn-gold btn-full" onclick="savePinataWeapons()">Save</button>
     </div>
   </div>
 </div>
@@ -3233,14 +3233,13 @@ window.switchOverrideTab = function(tab){
 }
 
 function renderOvPinata(){
-  const w=getPinataWeapons();
-  document.getElementById('ovW1Name').value=w.bat.name||'Bat';
-  document.getElementById('ovW2Name').value=w.crowbar.name||'Crowbar';
+  document.getElementById('ovW1Name').value=R.pinataWeapons?.batName||'Bat';
+  document.getElementById('ovW2Name').value=R.pinataWeapons?.crowbarName||'Position Choice';
 }
 window.savePinataWeapons=function(){
   const w1=document.getElementById('ovW1Name').value.trim()||'Bat';
-  const w2=document.getElementById('ovW2Name').value.trim()||'Crowbar';
-  dbSet('pinataWeapons',{bat:{name:w1},crowbar:{name:w2}});
+  const w2=document.getElementById('ovW2Name').value.trim()||'Position Choice';
+  dbSet('pinataWeapons',{batName:w1,crowbarName:w2});
   showToast('Weapon names saved');
 }
 
@@ -3476,10 +3475,61 @@ window.confirmClearStats=function(){
 }
 window.deleteHistoryEntry=function(idx){
   const night=window._historyNights&&window._historyNights[idx];
-  if(!night||!night._key)return;
-  db.ref(`rooms/${SESSION.roomCode}/history/${night._key}`).remove();
-  showToast('Entry deleted');
+  if(!night){showToast('Entry not found');return;}
+  if(!confirm(`Delete "${night.nightName}" from history? This will also reverse those stats from all-time records.`))return;
+
+  // Reverse stats for each player
+  const reverseStats=async ()=>{
+    const players=Object.values(night.players||{});
+    const bets=Object.values(night.bets||{});
+    const buyIn=night.buyIn||25;
+    for(const p of players){
+      const username=p.username||p.name;
+      const key=username.toLowerCase().replace(/[^a-z0-9]/g,'_');
+      const snap=await db.ref(`profiles/${key}`).once('value');
+      if(!snap.exists())continue;
+      const s=snap.val().stats||emptyStats();
+      // Reverse poker net
+      const bi=p.table===2?(night.buyIn2||buyIn):(night.buyIn1||buyIn);
+      const chipNet=p.chipTotal!=null?p.chipTotal-(p.buyIns||0)*bi:0;
+      // Reverse side net
+      let sideNet=0;
+      bets.filter(b=>b.settled).forEach(b=>{
+        const siders=b.siders||[];
+        if(b.winner==='proposer'){
+          if(b.proposer===p.id){sideNet+=b.amount*(1+siders.length);s.sideBetsWon=Math.max(0,(s.sideBetsWon||0)-1);}
+          if(b.acceptor===p.id){sideNet-=b.amount*(1+siders.length);s.sideBetsLost=Math.max(0,(s.sideBetsLost||0)-1);}
+        }else{
+          if(b.acceptor===p.id){sideNet+=b.amount*(1+siders.length);s.sideBetsWon=Math.max(0,(s.sideBetsWon||0)-1);}
+          if(b.proposer===p.id){sideNet-=b.amount*(1+siders.length);s.sideBetsLost=Math.max(0,(s.sideBetsLost||0)-1);}
+        }
+      });
+      const net=chipNet+sideNet;
+      s.gamesPlayed=Math.max(0,(s.gamesPlayed||0)-1);
+      s.totalBuyIns=Math.max(0,(s.totalBuyIns||0)-(p.buyIns||0));
+      s.totalNetPoker=(s.totalNetPoker||0)-chipNet;
+      s.totalNetSides=(s.totalNetSides||0)-sideNet;
+      s.totalNet=(s.totalNet||0)-net;
+      // Remove from gameHistory array
+      s.gameHistory=(s.gameHistory||[]).filter(g=>g.date!==night.date);
+      // Recalculate biggestWin/biggestLoss from remaining history
+      if(s.gameHistory.length){
+        s.biggestWin=Math.max(...s.gameHistory.map(g=>g.net),0);
+        s.biggestLoss=Math.min(...s.gameHistory.map(g=>g.net),0);
+      }else{
+        s.biggestWin=0;s.biggestLoss=0;
+      }
+      await db.ref(`profiles/${key}/stats`).set(s);
+    }
+  };
+  reverseStats().then(()=>showToast('Stats reversed ✓')).catch(e=>console.error('Stat reversal failed',e));
+
+  // Delete from Firebase
+  if(night._key){
+    db.ref(`rooms/${SESSION.roomCode}/history/${night._key}`).remove();
+  }
   renderHistory();
+  showToast(`"${night.nightName}" deleted`);
 }
 
 // ── PROFILES & LIFETIME STATS ─────────────────────────
@@ -3956,28 +4006,54 @@ function renderLinkedBets(gameType, gameId){
     ${linked.map(b=>{
       const isOpen=b.open&&!b.acceptor;
       const isMe=b.proposer===SESSION.playerId;
-      const oddsStr=(b.oddsN&&b.oddsD&&(b.oddsN!==1||b.oddsD!==1))?` @ ${b.oddsN}:${b.oddsD}`:'';
-      return `<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;margin-bottom:5px;padding:6px 8px;background:var(--surface);border-radius:7px;border:1px solid var(--border-dim)">
-        <div style="flex:1;min-width:0;margin-right:8px">
-          <span style="color:var(--text-dim)">${esc(pname(b.proposer))}</span>
-          <span style="color:var(--text)"> → ${esc(b.desc)}${oddsStr}</span>
-          <span class="mono" style="color:var(--gold)"> $${b.amount}</span>
+      const oddsN=b.oddsN||1, oddsD=b.oddsD||1;
+      const isEven=oddsN===1&&oddsD===1;
+      // What the proposer wins if their side wins
+      const proposerWins=Math.round(b.amount*oddsN/oddsD*100)/100;
+      // What the taker wins if their side wins
+      const takerWins=b.amount;
+      // Opposite side label
+      const g=R[`${gameType}Games`]?.[gameId];
+      let oppLabel='the other side';
+      if(gameType==='nerf'&&g){
+        const aNames=(g.teamA||[]).map(id=>pname(id)).join(' & ');
+        const bNames=(g.teamB||[]).map(id=>pname(id)).join(' & ');
+        oppLabel=b.linkedGame.side==='A'?`🔵 ${bNames}`:`🔴 ${aNames}`;
+      }else if((gameType==='n64'||gameType==='race')&&g){
+        const allPlayers=gameType==='n64'?(g.players||[]):(g.runners||[]);
+        const others=allPlayers.filter(pid=>pid!==b.linkedGame.side);
+        oppLabel=others.map(id=>pname(id)).join(' or ');
+      }
+
+      return `<div style="background:var(--surface);border:1px solid var(--border-dim);border-radius:8px;padding:8px 10px;margin-bottom:6px;font-size:12px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:${isOpen&&!isMe?'8':'0'}px">
+          <div style="flex:1;min-width:0">
+            <span style="color:var(--text-dim)">${esc(pname(b.proposer))}</span>
+            <span style="color:var(--text)"> → ${esc(b.desc)}</span>
+            ${!isEven?`<span style="color:var(--text-muted)"> @ ${oddsN}:${oddsD}</span>`:''}
+            <span class="mono" style="color:var(--gold)"> $${b.amount}</span>
+          </div>
+          ${b.settled?`<span style="color:${b.winner==='proposer'?'var(--green)':'var(--red-light)'}">
+            ${b.winner==='proposer'?'✓ Won':'✗ Lost'}
+          </span>`:''}
         </div>
-        ${b.settled?`<span style="color:${b.winner==='proposer'?'var(--green)':'var(--red-light)'}">
-          ${b.winner==='proposer'?'✓ Won':'✗ Lost'}
-        </span>`
-        :isOpen&&!isMe?`<button class="btn btn-xs btn-green" onclick="takeSpecBet('${b.id}')">Take it</button>`
-        :isOpen&&isMe?`<span style="font-size:10px;color:var(--text-muted)">Open</span>`
-        :`<span style="font-size:10px;color:var(--text-muted)">Matched</span>`}
+        ${isOpen&&!isMe?`
+          <div style="background:rgba(76,175,130,0.07);border:1px solid rgba(76,175,130,0.2);border-radius:6px;padding:7px 9px;margin-bottom:6px">
+            <div style="color:var(--green);font-weight:600;margin-bottom:2px">You'd be betting on: ${esc(oppLabel)}</div>
+            <div style="color:var(--text-dim)">You put up <span style="color:var(--text)">$${takerWins}</span> · you win <span style="color:var(--green)">$${proposerWins}</span> if they win${!isEven?` (${oddsD}:${oddsN} your way)`:''}</div>
+          </div>
+          <button class="btn btn-xs btn-green" style="width:100%" onclick="takeSpecBet('${b.id}')">Take this bet</button>`
+        :isOpen&&isMe?`<div style="font-size:10px;color:var(--text-muted);margin-top:4px">Waiting for a taker…</div>`
+        :!b.settled?`<div style="font-size:10px;color:var(--text-muted);margin-top:4px">Matched — awaiting result</div>`:''}
       </div>`;
     }).join('')}
   </div>`;
 }
 function getPinataWeapons(){
   return {
-    stick:  { name: R.pinataWeapons?.stick||'Stick',   emoji:'🪄' },
-    bat:    { name: R.pinataWeapons?.bat||'Bat',       emoji:'🏏' },
-    crowbar:{ name: R.pinataWeapons?.crowbar||'Crowbar',emoji:'🔧' }
+    stick:   { name:'Stick',  emoji:'🪄', type:'weapon' },
+    bat:     { name:R.pinataWeapons?.batName||'Bat',     emoji:'🏏', type:'weapon' },
+    crowbar: { name:R.pinataWeapons?.crowbarName||'Position Choice', emoji:'🎯', type:'position' }
   };
 }
 
@@ -4058,12 +4134,10 @@ window.closePinataReveal=function(){
 }
 
 window.closePinataRevealAndSettle=function(){
-  // Lock bids — assign weapons based on highest bids
   const g=R.pinataGames?.[activePinataId];if(!g)return;
   const bids=Object.values(g.bids||{});
   const w=getPinataWeapons();
 
-  // Find bat winner (highest bid for bat)
   const batBids=bids.filter(b=>b.weapon==='bat').sort((a,b)=>b.amount-a.amount||a.ts-b.ts);
   const crowbarBids=bids.filter(b=>b.weapon==='crowbar').sort((a,b)=>b.amount-a.amount||a.ts-b.ts);
   const batWinner=batBids[0]||null;
@@ -4076,11 +4150,8 @@ window.closePinataRevealAndSettle=function(){
                 :'stick';
   });
 
-  // Add auction proceeds to pot
   const auctionTotal=(batWinner?.amount||0)+(crowbarWinner?.amount||0);
   const newPot=Math.round((g.pot+auctionTotal)*100)/100;
-
-  // Randomize swing order
   const order=[...g.players].sort(()=>Math.random()-0.5);
 
   db.ref(`rooms/${SESSION.roomCode}`).update({
@@ -4091,9 +4162,55 @@ window.closePinataRevealAndSettle=function(){
     [`pinataGames/${activePinataId}/bidsClosed`]:true,
     [`pinataGames/${activePinataId}/batWinner`]:batWinner?.playerId||null,
     [`pinataGames/${activePinataId}/crowbarWinner`]:crowbarWinner?.playerId||null,
+    [`pinataGames/${activePinataId}/positionChoicePending`]:!!crowbarWinner
   });
   closePinataReveal();
-  showToast(`Bids locked! $${newPot} in the piñata 🪅`);
+
+  // If there's a position choice winner, show them the order picker
+  if(crowbarWinner){
+    showToast(`Bids locked! ${pname(crowbarWinner.playerId)} picks their swing position 🎯`);
+    setTimeout(()=>openPositionPicker(activePinataId, crowbarWinner.playerId, order), 500);
+  }else{
+    showToast(`Bids locked! $${newPot} in the piñata 🪅`);
+    switchTab('games');
+  }
+}
+
+window.openPositionPicker=function(gameId, winnerId, order){
+  // Only show to host — host picks on winner's behalf or prompts them
+  if(!isHost())return;
+  const g=R.pinataGames?.[gameId];if(!g)return;
+  const names=order.map(pid=>pname(pid));
+  const currentPos=order.indexOf(winnerId)+1;
+  const modal=document.createElement('div');
+  modal.style.cssText='position:fixed;inset:0;z-index:999;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;padding:24px';
+  modal.innerHTML=`<div style="background:var(--felt);border:1px solid var(--border);border-radius:16px;padding:24px;max-width:360px;width:100%">
+    <div style="font-family:Playfair Display,serif;font-size:18px;font-weight:700;color:var(--gold);margin-bottom:8px">🎯 ${esc(pname(winnerId))} picks their position</div>
+    <div style="font-size:12px;color:var(--text-dim);margin-bottom:16px">Current random order — pick where ${esc(pname(winnerId))} wants to swing:</div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
+      ${order.map((pid,i)=>`<button onclick="setPositionChoice('${gameId}','${winnerId}',${i},this.closest('.pos-picker'))" style="padding:10px;border-radius:8px;border:1px solid ${pid===winnerId?'var(--gold)':'var(--border-dim)'};background:${pid===winnerId?'rgba(201,168,76,0.1)':'var(--surface)'};color:var(--text);font-family:DM Sans,sans-serif;cursor:pointer;text-align:left">
+        <span style="font-family:DM Mono,monospace;color:var(--text-muted);margin-right:8px">${i+1}</span>${esc(pname(pid))}${pid===winnerId?'<span style="color:var(--gold);margin-left:8px">← current</span>':''}
+      </button>`).join('')}
+    </div>
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px">Or keep the random order</div>
+    <button onclick="this.closest('[style*=fixed]').remove();switchTab('games')" style="width:100%;padding:11px;border-radius:10px;border:none;background:var(--gold);color:var(--felt-dark);font-family:DM Sans,sans-serif;font-weight:700;cursor:pointer">Keep Random Order</button>
+  </div>`;
+  modal.classList.add('pos-picker');
+  document.body.appendChild(modal);
+}
+
+window.setPositionChoice=function(gameId, winnerId, newIdx, modal){
+  const g=R.pinataGames?.[gameId];if(!g)return;
+  const order=[...g.order];
+  const oldIdx=order.indexOf(winnerId);
+  order.splice(oldIdx,1);
+  order.splice(newIdx,0,winnerId);
+  db.ref(`rooms/${SESSION.roomCode}`).update({
+    [`pinataGames/${gameId}/order`]:order,
+    [`pinataGames/${gameId}/positionChoicePending`]:false
+  });
+  if(modal)modal.remove();
+  showToast(`${pname(winnerId)} swings ${newIdx===0?'first':newIdx===order.length-1?'last':`#${newIdx+1}`} 🎯`);
   switchTab('games');
 }
 
