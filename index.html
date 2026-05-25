@@ -742,6 +742,28 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
   </div>
 </div>
 
+<!-- Game Win Overlay -->
+<div id="gameWinOverlay" style="display:none;position:fixed;inset:0;z-index:994;background:rgba(0,0,0,0.92);cursor:pointer" onclick="closeGameWinOverlay()">
+  <div id="gameWinRain" style="position:absolute;inset:0;pointer-events:none;overflow:hidden"></div>
+  <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;text-align:center;pointer-events:none">
+    <div id="gameWinEmoji" style="font-size:80px;margin-bottom:16px;filter:drop-shadow(0 0 30px rgba(255,255,255,0.5))"></div>
+    <div id="gameWinGame" style="font-family:'DM Mono',monospace;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,0.5);margin-bottom:12px"></div>
+    <div id="gameWinName" style="font-family:'Playfair Display',serif;font-size:42px;font-weight:900;color:#fff;line-height:1.1;margin-bottom:8px"></div>
+    <div id="gameWinSub" style="font-size:16px;color:rgba(255,255,255,0.7);margin-bottom:24px"></div>
+    <div id="gameWinAmount" style="font-family:'DM Mono',monospace;font-size:48px;font-weight:700;color:var(--gold)"></div>
+  </div>
+</div>
+
+<!-- Rebuy Overlay -->
+<div id="rebuyOverlay" style="display:none;position:fixed;inset:0;z-index:993;background:rgba(0,0,0,0.88);cursor:pointer" onclick="closeRebuyOverlay()">
+  <div id="rebuyRain" style="position:absolute;inset:0;pointer-events:none;overflow:hidden"></div>
+  <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;text-align:center;pointer-events:none">
+    <div id="rebuyMainEmoji" style="font-size:80px;margin-bottom:16px"></div>
+    <div id="rebuyHeadline" style="font-family:'Playfair Display',serif;font-size:28px;font-weight:900;color:#fff;line-height:1.2;margin-bottom:12px"></div>
+    <div id="rebuyName" style="font-family:'DM Mono',monospace;font-size:13px;letter-spacing:2px;color:rgba(255,255,255,0.6)"></div>
+  </div>
+</div>
+
 <!-- HOT DOG O'CLOCK -->
 <div id="hotdogOverlay" onclick="hdOverlayClick(event)">
   <div id="sirenBar" style="position:absolute;inset:0;pointer-events:none"></div>
@@ -838,6 +860,27 @@ header{padding:14px 18px 0;display:flex;justify-content:space-between;align-item
 </div>
 
 <!-- Player buy-in -->
+<!-- Request Buy-In (player side with custom amount option) -->
+<div class="overlay" id="requestBuyInOverlay" style="display:none" onclick="if(event.target===this)closeModal('requestBuyInOverlay')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Request Buy-In</div>
+    <div id="requestBuyInSub" style="font-size:13px;color:var(--text-dim);margin-bottom:16px"></div>
+    <div class="form-row">
+      <label class="field-label">Amount</label>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <button class="preset active" id="reqBuyInStd" onclick="setReqBuyInCustom(false)">Standard (<span id="reqBuyInStdAmt"></span>)</button>
+        <button class="preset" id="reqBuyInCustomBtn" onclick="setReqBuyInCustom(true)">Custom $</button>
+      </div>
+      <input class="field" id="reqBuyInCustomAmt" type="number" min="1" placeholder="Custom amount ($)" style="display:none">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" style="flex:1" onclick="closeModal('requestBuyInOverlay')">Cancel</button>
+      <button class="btn btn-gold" style="flex:2" onclick="submitBuyInRequest()">Request 🙋</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="playerBuyInOverlay" style="display:none" onclick="if(event.target===this)closeModal('playerBuyInOverlay')">
   <div class="modal">
     <div class="modal-handle"></div>
@@ -1569,7 +1612,7 @@ function enterApp(){
     R = snap.val();
     R.players = R.players||{}; R.bets = R.bets||{}; R.nitGames = R.nitGames||{};
     R.lowGames = R.lowGames||{}; R.n64Games = R.n64Games||{}; R.raceGames = R.raceGames||{}; R.pinataGames = R.pinataGames||{}; R.nerfGames = R.nerfGames||{};
-    R.drinks = R.drinks||{}; R.hotdogOrders = R.hotdogOrders||{}; R.buyInRequests = R.buyInRequests||{}; R.adjustments = R.adjustments||{}; R.menu = R.menu||null; R.history = R.history||{};
+    R.drinks = R.drinks||{}; R.hotdogOrders = R.hotdogOrders||{}; R.buyInRequests = R.buyInRequests||{}; R.cashOutRequests = R.cashOutRequests||{}; R.adjustments = R.adjustments||{}; R.menu = R.menu||null; R.history = R.history||{};
     // Sync banker role to SESSION if my player record was updated
     if(SESSION.playerId&&R.players[SESSION.playerId]){
       const me=R.players[SESSION.playerId];
@@ -1616,8 +1659,24 @@ function enterApp(){
     updateHdBannerSub();
   });
 
+  // Rebuy fanfare — fires on all clients
+  db.ref(`rooms/${SESSION.roomCode}/rebuyActive`).on('value', snap=>{
+    if(!snap.val())return;
+    const {playerId,count,amount}=snap.val();
+    const p=R.players?.[playerId];if(!p)return;
+    const script=getRebuyScript(p.name,count,amount);
+    showRebuyOverlay(script);
+  });
+
+  // Game win — fires on all clients
+  db.ref(`rooms/${SESSION.roomCode}/gameWinActive`).on('value', snap=>{
+    if(!snap.val())return;
+    const {type,winner,game,amount}=snap.val();
+    if(!isHost()) showGameWinOverlay(type,winner,game,amount);
+  });
+
   // Ceremony — show on all clients when host triggers
-  db.ref(`rooms/${SESSION.roomCode}/ceremony`).on('value', snap => {
+  db.ref(`rooms/${SESSION.roomCode}/ceremony`).on('value', snap=>{
     if(snap.val()&&snap.val().active&&!isHost()){
       buildCeremony();
     }
@@ -1798,23 +1857,212 @@ window.recordBuyIn = function(){
   closeModal('playerBuyInOverlay');
 }
 
-window.requestBuyIn = function(pid){
-  const rid=uid();
-  dbSet(`buyInRequests/${rid}`,{id:rid,playerId:pid,confirmed:false,ts:Date.now()});
-  showToast('Buy-in requested 🙋');
+let _requestBuyInPid=null;
+let _reqBuyInCustom=false;
+window.openRequestBuyIn=function(pid){
+  _requestBuyInPid=pid;
+  _reqBuyInCustom=false;
+  const bi=getBuyIn(R.players[pid]?.table||1);
+  document.getElementById('requestBuyInSub').textContent=`Current buy-ins: ${R.players[pid]?.buyIns||0}`;
+  document.getElementById('reqBuyInStdAmt').textContent=`$${bi}`;
+  setReqBuyInCustom(false);
+  document.getElementById('requestBuyInOverlay').style.display='flex';
 }
-window.confirmBuyInRequest = function(rid){
+window.setReqBuyInCustom=function(custom){
+  _reqBuyInCustom=custom;
+  document.getElementById('reqBuyInStd').classList.toggle('active',!custom);
+  document.getElementById('reqBuyInCustomBtn').classList.toggle('active',custom);
+  document.getElementById('reqBuyInCustomAmt').style.display=custom?'block':'none';
+}
+window.submitBuyInRequest=function(){
+  if(!_requestBuyInPid)return;
+  const bi=getBuyIn(R.players[_requestBuyInPid]?.table||1);
+  let customAmount=null;
+  if(_reqBuyInCustom){
+    customAmount=parseFloat(document.getElementById('reqBuyInCustomAmt').value);
+    if(!customAmount||customAmount<=0){showToast('Enter a valid amount');return;}
+  }
+  const rid=uid();
+  dbSet(`buyInRequests/${rid}`,{id:rid,playerId:_requestBuyInPid,customAmount:customAmount||null,confirmed:false,ts:Date.now()});
+  closeModal('requestBuyInOverlay');
+  showToast(customAmount?`Buy-in request ($${customAmount}) sent 🙋`:'Buy-in requested 🙋');
+}
+window.requestBuyIn=function(pid){
+  openRequestBuyIn(pid);
+}
+window.confirmBuyInRequest=function(rid){
   if(!canManageBuyIns())return;
   const req=R.buyInRequests?.[rid];if(!req)return;
   const p=R.players[req.playerId];if(!p)return;
+  const amount=req.customAmount||getBuyIn(p.table||1);
   dbUpdate(`players/${req.playerId}`,{buyIns:(p.buyIns||0)+1});
   dbSet(`buyInRequests/${rid}`,null);
-  showToast(`Buy-in confirmed for ${p.name} ✓`);
+  // Trigger rebuy fanfare
+  triggerRebuyFanfare(p, (p.buyIns||0)+1, amount);
 }
-window.denyBuyInRequest = function(rid){
+window.denyBuyInRequest=function(rid){
   if(!canManageBuyIns())return;
   dbSet(`buyInRequests/${rid}`,null);
   showToast('Request denied');
+}
+
+// Cash-out request
+window.requestCashOut=function(pid){
+  const rid=uid();
+  dbSet(`cashOutRequests/${rid}`,{id:rid,playerId:pid,confirmed:false,ts:Date.now()});
+  showToast('Cash-out requested 💰');
+}
+window.openConfirmCashOut=function(rid){
+  const req=R.cashOutRequests?.[rid];if(!req)return;
+  const p=R.players[req.playerId];if(!p)return;
+  // Reuse chip check modal
+  pendingBuyInId=req.playerId;
+  document.getElementById('playerBuyInTitle').textContent=`Cash Out ${p.name}`;
+  document.getElementById('playerBuyInSub').textContent=`Enter their final chip total`;
+  document.getElementById('playerBuyInAmt').textContent='';
+  // Replace record buy-in button with cash out confirm
+  document.getElementById('playerBuyInOverlay').style.display='flex';
+  document.getElementById('playerBuyInOverlay').dataset.cashOutRid=rid;
+}
+window.denyCashOutRequest=function(rid){
+  dbSet(`cashOutRequests/${rid}`,null);
+  showToast('Cash-out denied');
+}
+
+// Override buy-in record to also trigger fanfare
+window.recordBuyIn=function(){
+  const p=R.players[pendingBuyInId];if(!p)return;
+  const bi=getBuyIn(p.table||1);
+  const newCount=(p.buyIns||0)+1;
+  dbUpdate(`players/${pendingBuyInId}`,{buyIns:newCount});
+  closeModal('playerBuyInOverlay');
+  triggerRebuyFanfare(p, newCount, bi);
+}
+
+// ── REBUY FANFARE ─────────────────────────────────────
+function getRebuyScript(name, count, amount){
+  switch(count){
+    case 1: return {
+      emoji:'🔫', headline:`${name} reloaded!`,
+      sub:`Back in the game · +$${amount}`, color:'#ffcc00',
+      particles:['🔫','💥','✨','🎯']
+    };
+    case 2: return {
+      emoji:'🚀', headline:`Too close for missiles…`,
+      sub:`…switching to guns. ${name} rebought · +$${amount}`, color:'#ff6b35',
+      particles:['🚀','🔫','💥','😬']
+    };
+    case 3: return {
+      emoji:'💸', headline:`${name} just lit $${amount} on fire`,
+      sub:`Third time's the charm? Right?`, color:'#e84aa2',
+      particles:['💸','🔥','😬','💀']
+    };
+    case 4: return {
+      emoji:'🚑', headline:`Somebody call a doctor`,
+      sub:`${name} is down big and reloading · +$${amount}`, color:'#e05444',
+      particles:['🚑','💔','😰','🩺']
+    };
+    default: return {
+      emoji:'☠️', headline:`Are you sure?`,
+      sub:`${name} rebought. Again. For the ${count}${['th','st','nd','rd'][Math.min(count%10,3)]||'th'} time.`, color:'#888',
+      particles:['☠️','💀','🪦','😶']
+    };
+  }
+}
+
+function triggerRebuyFanfare(p, newCount, amount){
+  const script=getRebuyScript(p.name, newCount, amount);
+  // Broadcast to all phones
+  dbSet('rebuyActive',{playerId:p.id,count:newCount,amount,ts:Date.now()});
+  showRebuyOverlay(script);
+}
+
+function showRebuyOverlay(script){
+  const overlay=document.getElementById('rebuyOverlay');
+  document.getElementById('rebuyMainEmoji').textContent=script.emoji;
+  document.getElementById('rebuyHeadline').textContent=script.headline;
+  document.getElementById('rebuyHeadline').style.color=script.color;
+  document.getElementById('rebuyName').textContent=script.sub;
+  overlay.style.display='block';
+  spawnGameParticles('rebuyRain', script.particles);
+  playRebuySound(script.emoji);
+  setTimeout(()=>closeRebuyOverlay(), 4000);
+}
+window.closeRebuyOverlay=function(){
+  document.getElementById('rebuyOverlay').style.display='none';
+  document.getElementById('rebuyRain').innerHTML='';
+}
+
+function playRebuySound(emoji){
+  try{
+    const ctx=new(window.AudioContext||window.webkitAudioContext)();
+    if(emoji==='🔫'){
+      // Revolver click-click
+      [0,0.15].forEach(t=>{
+        const buf=ctx.createBuffer(1,ctx.sampleRate*0.08,ctx.sampleRate);
+        const d=buf.getChannelData(0);
+        for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,3)*0.8;
+        const src=ctx.createBufferSource();const g=ctx.createGain();
+        src.buffer=buf;src.connect(g);g.connect(ctx.destination);
+        g.gain.setValueAtTime(0.5,ctx.currentTime+t);
+        src.start(ctx.currentTime+t);
+      });
+    }else{
+      // Descending sad trombone feel for higher rebuys
+      const notes=emoji==='🚑'?[311,277,247,220]:[392,349,330,294];
+      notes.forEach((f,i)=>{
+        const o=ctx.createOscillator();const g=ctx.createGain();
+        o.connect(g);g.connect(ctx.destination);
+        o.type='sawtooth';o.frequency.value=f;
+        g.gain.setValueAtTime(0.08,ctx.currentTime+i*0.18);
+        g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+i*0.18+0.3);
+        o.start(ctx.currentTime+i*0.18);o.stop(ctx.currentTime+i*0.18+0.35);
+      });
+    }
+  }catch(e){}
+}
+
+// ── GAME WIN OVERLAY ──────────────────────────────────
+const GAME_WIN_CONFIG={
+  nerf:  {emoji:'🔫', color:'#4a9ed4', particles:['🔫','💥','🎯','🏆','✨']},
+  n64:   {emoji:'🎮', color:'#9b7fd4', particles:['🎮','🏆','⭐','🥇','🎉']},
+  race:  {emoji:'🏆', color:'#c9a84c', particles:['🏆','🥇','🏃','💨','⭐']},
+  nit:   {emoji:'🎯', color:'#e05444', particles:['🎯','💸','😅','🤣','💀']},
+  low:   {emoji:'💥', color:'#e8844a', particles:['💥','🃏','💸','🤙','🔥']}
+};
+
+function showGameWinOverlay(type, winnerName, gameName, amount){
+  const cfg=GAME_WIN_CONFIG[type]||{emoji:'🏆',color:'#c9a84c',particles:['🏆','⭐','🎉','✨','🥇']};
+  document.getElementById('gameWinEmoji').textContent=cfg.emoji;
+  document.getElementById('gameWinGame').textContent=gameName;
+  document.getElementById('gameWinName').textContent=winnerName;
+  document.getElementById('gameWinSub').textContent='wins';
+  document.getElementById('gameWinAmount').textContent=amount?`+$${amount}`:'';
+  document.getElementById('gameWinAmount').style.color=cfg.color;
+  document.getElementById('gameWinOverlay').style.display='block';
+  spawnGameParticles('gameWinRain', cfg.particles);
+  playWinnerSound();
+  setTimeout(()=>closeGameWinOverlay(), 4500);
+}
+window.closeGameWinOverlay=function(){
+  document.getElementById('gameWinOverlay').style.display='none';
+  document.getElementById('gameWinRain').innerHTML='';
+}
+
+function spawnGameParticles(containerId, emojis){
+  const rain=document.getElementById(containerId);if(!rain)return;
+  rain.innerHTML='';
+  for(let i=0;i<35;i++){
+    setTimeout(()=>{
+      const el=document.createElement('div');
+      const emoji=emojis[Math.floor(Math.random()*emojis.length)];
+      const x=Math.random()*100;const size=20+Math.random()*36;
+      const dur=1.8+Math.random()*2.5;
+      el.style.cssText=`position:absolute;left:${x}%;top:-60px;font-size:${size}px;animation:hdFall ${dur}s linear forwards;pointer-events:none;user-select:none`;
+      el.textContent=emoji;rain.appendChild(el);
+      setTimeout(()=>{try{el.remove();}catch(e){}},dur*1000+200);
+    },i*120);
+  }
 }
 
 window.dealEveryoneIn = function(){
@@ -1901,16 +2149,31 @@ function renderPlayers(){
   // Show pending request banner if host/banker
   const reqBanner=document.getElementById('buyInRequestBanner');
   if(reqBanner){
-    if(canManageBuyIns()&&pendingRequests.length){
-      reqBanner.style.display='block';
-      reqBanner.innerHTML=`<div style="font-size:11px;font-weight:700;color:var(--gold);margin-bottom:8px">🙋 Buy-In Requests (${pendingRequests.length})</div>`+
+    if(canManageBuyIns()&&(pendingRequests.length||Object.values(R.cashOutRequests||{}).filter(r=>!r.confirmed).length)){
+    const pendingCashOuts=Object.values(R.cashOutRequests||{}).filter(r=>!r.confirmed);
+    reqBanner.style.display='block';
+    let html='';
+    if(pendingRequests.length){
+      html+=`<div style="font-size:11px;font-weight:700;color:var(--gold);margin-bottom:8px">🙋 Buy-In Requests (${pendingRequests.length})</div>`+
         pendingRequests.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-          <span style="font-size:13px">${esc(pname(r.playerId))}</span>
+          <span style="font-size:13px">${esc(pname(r.playerId))} ${r.customAmount?`<span class="mono" style="color:var(--gold)">$${r.customAmount}</span>`:'(standard)'}</span>
           <div style="display:flex;gap:6px">
             <button class="btn btn-green btn-xs" onclick="confirmBuyInRequest('${r.id}')">✓ Confirm</button>
             <button class="btn btn-outline btn-xs" onclick="denyBuyInRequest('${r.id}')">✕</button>
           </div>
         </div>`).join('');
+    }
+    if(pendingCashOuts.length){
+      html+=`<div style="font-size:11px;font-weight:700;color:var(--green);margin-bottom:8px;margin-top:${pendingRequests.length?'12px':'0'}">💰 Cash-Out Requests (${pendingCashOuts.length})</div>`+
+        pendingCashOuts.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <span style="font-size:13px">${esc(pname(r.playerId))}</span>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-green btn-xs" onclick="openConfirmCashOut('${r.id}')">Cash Out</button>
+            <button class="btn btn-outline btn-xs" onclick="denyCashOutRequest('${r.id}')">✕</button>
+          </div>
+        </div>`).join('');
+    }
+    reqBanner.innerHTML=html;
     }else{
       reqBanner.style.display='none';
     }
@@ -1922,7 +2185,10 @@ function renderPlayers(){
     const str=bal>0?`+$${bal}`:bal<0?`-$${Math.abs(bal)}`:'$0';
     const count=p.buyIns||0;
     const buyIn=getBuyIn(p.table||1);
-    const buyStr=count===0?'No buy-in yet':`${count} buy-in${count>1?'s':''} · $${count*buyIn}`;
+    const rebuys=Math.max(0,count-1);
+    const buyStr=count===0?'No buy-in yet':
+      count===1?`1 buy-in · $${buyIn}`:
+      `${count} buy-ins · $${count*buyIn} <span style="color:var(--red-light);font-size:9px">(${rebuys} rebuy${rebuys>1?'s':''})</span>`;
     const chipNet=getPlayerChipNet(p.id);
     const chipStr=p.cashedOut?`Cashed $${p.chipTotal} (${chipNet>=0?'+':''}$${chipNet})`:p.chipTotal!=null?`Chips $${p.chipTotal} (${chipNet>=0?'+':''}$${chipNet}) prelim`:'';
     const isMine=p.id===SESSION.playerId;
@@ -1946,13 +2212,18 @@ function renderPlayers(){
         ${isHost()?`<button class="p-buyin-btn" style="flex:1;border-top:none;color:var(--blue)" onclick="assignTable('${p.id}',${(p.table||1)===1?2:1})">→ T${(p.table||1)===1?2:1}</button>`:''}
       </div>`;
     }else if(isMine&&SESSION.role==='player'){
-      // My own card as a player — request buy-in and tip dealer buttons
-      if(myPendingReq){
+      const myPendingCashOut=Object.values(R.cashOutRequests||{}).find(r=>r.playerId===p.id&&!r.confirmed);
+      if(p.cashedOut){
+        actionBar=`<div style="border-top:1px solid var(--border-dim);padding:8px;text-align:center;font-size:11px;color:var(--green)">✓ Cashed out</div>`;
+      }else if(myPendingCashOut){
+        actionBar=`<div style="border-top:1px solid var(--border-dim);padding:8px;text-align:center;font-size:11px;color:var(--text-dim)">⏳ Cash-out requested…</div>`;
+      }else if(myPendingReq){
         actionBar=`<div style="border-top:1px solid var(--border-dim);padding:8px;text-align:center;font-size:11px;color:var(--text-dim)">⏳ Buy-in requested…</div>`;
       }else{
         actionBar=`<div style="display:flex;border-top:1px solid var(--border-dim)">
-          <button class="p-buyin-btn" style="flex:1;border-right:1px solid var(--border-dim);border-top:none;color:var(--blue)" onclick="requestBuyIn('${p.id}')">🙋 Request Buy-In</button>
-          <button class="p-buyin-btn" style="flex:1;border-top:none;color:var(--green)" onclick="tipDealer()">💰 Tip Dealer</button>
+          <button class="p-buyin-btn" style="flex:1;border-right:1px solid var(--border-dim);border-top:none;color:var(--blue)" onclick="openRequestBuyIn('${p.id}')">🙋 Request Buy-In</button>
+          <button class="p-buyin-btn" style="flex:1;border-right:1px solid var(--border-dim);border-top:none;color:var(--text-dim)" onclick="requestCashOut('${p.id}')">💰 Cash Out</button>
+          <button class="p-buyin-btn" style="flex:1;border-top:none;color:var(--green)" onclick="tipDealer()">🍺 Tip</button>
         </div>`;
       }
     }
@@ -2352,7 +2623,7 @@ window.closeNightFinal = async function(){
     const resetUpd={
       nightName:newNight, bets:null, nitGames:null, lowGames:null,
       n64Games:null, raceGames:null, nerfGames:null, ceremony:null, pinataGames:null,
-      activePinata:null, hotdogOrders:null, buyInRequests:null, adjustments:null
+      activePinata:null, hotdogOrders:null, buyInRequests:null, cashOutRequests:null, adjustments:null, rebuyActive:null, gameWinActive:null
     };
     Object.keys(R.players||{}).forEach(pid=>{
       resetUpd[`players/${pid}/buyIns`]=0;
@@ -2809,7 +3080,10 @@ window.nitTurnIn=function(gameId,pid){
 window.nitConfirm=function(gameId){
   const g=R.nitGames?.[gameId];if(!g)return;
   dbUpdate(`nitGames/${gameId}`,{active:false,pendingConfirm:false,settled:true});
-  showToast(`${pname(g.loser)} pays $${g.amount*((g.players||[]).length-1)} 💸`);
+  const pot=g.amount*((g.players||[]).length-1);
+  dbSet('gameWinActive',{type:'nit',winner:pname(g.loser),game:'Nit Game',amount:null,ts:Date.now()});
+  showGameWinOverlay('nit',pname(g.loser),'Nit Game 💀',null);
+  showToast(`${pname(g.loser)} pays $${pot} 💸`);
 }
 
 window.deleteNitGame=function(id){dbSet(`nitGames/${id}`,null);}
@@ -2993,8 +3267,10 @@ window.setN64Placement=function(gameId,pid,place){
   const settled=placements.length===(g.players||[]).length;
   dbUpdate(`n64Games/${gameId}`,{placements,settled});
   if(settled){
-    showToast('Match settled 🎮');
-    autoSettleLinkedBets('n64',gameId,placements[0]); // winner is first place
+    autoSettleLinkedBets('n64',gameId,placements[0]);
+    const pot=(g.players||[]).length*(g.amount||0)-(g.amount||0);
+    dbSet('gameWinActive',{type:'n64',winner:pname(placements[0]),game:g.game||'N64',amount:pot,ts:Date.now()});
+    showGameWinOverlay('n64',pname(placements[0]),g.game||'N64',pot);
   }
 }
 window.deleteN64Game=function(id){dbSet(`n64Games/${id}`,null);}
@@ -3068,7 +3344,9 @@ window.settleRace=function(id,winnerId){
   dbUpdate(`raceGames/${id}`,{settled:true,winner:winnerId});
   autoSettleLinkedBets('race',id,winnerId);
   const losers=(g.runners||[]).filter(r=>r!==winnerId);
-  showToast(`${pname(winnerId)} wins $${(losers.length*g.amount*g.oddsN/g.oddsD).toFixed(2)}! 🏆`);
+  const pot=(losers.length*g.amount*g.oddsN/g.oddsD).toFixed(0);
+  dbSet('gameWinActive',{type:'race',winner:pname(winnerId),game:'Race',amount:pot,ts:Date.now()});
+  showGameWinOverlay('race',pname(winnerId),'Race',pot);
 }
 window.deleteRaceGame=function(id){dbSet(`raceGames/${id}`,null);}
 function renderRaceGames(){
@@ -4113,7 +4391,8 @@ window.settleNerfMatch=function(gameId,winTeam){
   dbUpdate(`nerfGames/${gameId}`,{settled:true,winner:winTeam});
   autoSettleLinkedBets('nerf',gameId,winTeam);
   const winners=(winTeam==='A'?g.teamA:g.teamB).map(id=>pname(id)).join(' & ');
-  showToast(`${winners} win $${g.pot}! 🔫`);
+  dbSet('gameWinActive',{type:'nerf',winner:winners,game:'Nerf Darts',amount:g.pot,ts:Date.now()});
+  showGameWinOverlay('nerf',winners,'Nerf Darts',g.pot);
 }
 window.deleteNerfGame=function(id){dbSet(`nerfGames/${id}`,null);}
 
